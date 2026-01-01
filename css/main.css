@@ -399,6 +399,32 @@ body {
     margin-top: var(--spacing-lg);
 }
 
+/* Confirmation Modal Specific Styles */
+#confirm-modal .modal-content {
+    max-width: 400px;
+}
+
+#confirm-modal .modal-body {
+    padding: var(--spacing-lg) 0;
+    text-align: center;
+}
+
+#confirm-modal .modal-body p {
+    font-size: var(--font-size-md);
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+}
+
+#confirm-modal .modal-actions {
+    justify-content: center;
+    gap: var(--spacing-md);
+}
+
+#confirm-modal .btn {
+    min-width: 100px;
+}
+
 /* Utility Classes */
 .text-center {
     text-align: center;

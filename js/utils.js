@@ -531,18 +531,78 @@ class Utils {
     }
 
     /**
-     * Show confirmation dialog
+     * Show confirmation dialog with in-app modal
      * @param {string} message - Confirmation message
      * @param {Function} onConfirm - Callback for confirmation
      * @param {Function} onCancel - Callback for cancellation
+     * @param {Object} options - Options for button text and styling
      */
-    static showConfirmDialog(message, onConfirm, onCancel = null) {
-        const confirmed = confirm(message);
-        if (confirmed && onConfirm) {
-            onConfirm();
-        } else if (!confirmed && onCancel) {
-            onCancel();
+    static showConfirmDialog(message, onConfirm, onCancel = null, options = {}) {
+        const modal = document.getElementById('confirm-modal');
+        const messageElement = document.getElementById('confirm-message');
+        const yesButton = document.getElementById('confirm-yes');
+        const noButton = document.getElementById('confirm-no');
+        const closeButton = modal.querySelector('.modal-close');
+
+        if (!modal || !messageElement || !yesButton || !noButton) {
+            // Fallback to browser confirm if modal elements not found
+            const confirmed = confirm(message);
+            if (confirmed && onConfirm) {
+                onConfirm();
+            } else if (!confirmed && onCancel) {
+                onCancel();
+            }
+            return;
         }
+
+        // Set the message
+        messageElement.textContent = message;
+
+        // Set button text
+        yesButton.textContent = options.confirmText || 'Yes, Delete';
+        noButton.textContent = options.cancelText || 'Cancel';
+
+        // Set button styling
+        yesButton.className = `btn ${options.confirmClass || 'btn-danger'}`;
+        noButton.className = `btn ${options.cancelClass || 'btn-secondary'}`;
+
+        // Show the modal
+        modal.classList.add('show');
+
+        // Handle confirmation
+        const handleConfirm = () => {
+            modal.classList.remove('show');
+            if (onConfirm) onConfirm();
+            cleanup();
+        };
+
+        // Handle cancellation
+        const handleCancel = () => {
+            modal.classList.remove('show');
+            if (onCancel) onCancel();
+            cleanup();
+        };
+
+        // Clean up event listeners
+        const cleanup = () => {
+            yesButton.removeEventListener('click', handleConfirm);
+            noButton.removeEventListener('click', handleCancel);
+            closeButton.removeEventListener('click', handleCancel);
+            modal.removeEventListener('click', handleModalClick);
+        };
+
+        // Handle clicking outside modal
+        const handleModalClick = (e) => {
+            if (e.target === modal) {
+                handleCancel();
+            }
+        };
+
+        // Add event listeners
+        yesButton.addEventListener('click', handleConfirm);
+        noButton.addEventListener('click', handleCancel);
+        closeButton.addEventListener('click', handleCancel);
+        modal.addEventListener('click', handleModalClick);
     }
 
     /**
