@@ -19,9 +19,18 @@ class FinanceTrackerApp {
      * Handle OAuth callback with token
      */
     async handleOAuthCallback() {
+        console.log('=== CHECKING FOR OAUTH CALLBACK ===');
+        console.log('Current URL:', window.location.href);
+        
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const loginSuccess = urlParams.get('login');
+        
+        console.log('URL Parameters:', {
+            token: token ? 'Present' : 'Missing',
+            loginSuccess: loginSuccess,
+            allParams: Object.fromEntries(urlParams.entries())
+        });
         
         if (token && loginSuccess === 'success') {
             console.log('OAuth login successful, storing token');
@@ -39,6 +48,8 @@ class FinanceTrackerApp {
                 };
                 localStorage.setItem('userInfo', JSON.stringify(userInfo));
                 
+                console.log('User info stored:', userInfo);
+                
                 // Update UI with user info
                 this.updateUserDisplay(userInfo);
                 
@@ -50,6 +61,9 @@ class FinanceTrackerApp {
             // Clean up URL parameters
             const cleanUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, document.title, cleanUrl);
+            console.log('URL cleaned up');
+        } else {
+            console.log('No OAuth callback detected');
         }
     }
 
