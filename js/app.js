@@ -541,8 +541,8 @@ class FinanceTrackerApp {
             console.log('Analytics data received:', stats);
             
             // Update summary cards with proper null handling
-            const totalIncome = parseFloat(stats.total_income) || 0;
-            const totalExpenses = parseFloat(stats.total_expenses) || 0;
+            const totalIncome = parseFloat(stats.totalIncome) || 0;
+            const totalExpenses = parseFloat(stats.totalExpenses) || 0;
             const balance = totalIncome - totalExpenses;
             
             console.log(`Updating dashboard: Income=${totalIncome}, Expenses=${totalExpenses}, Balance=${balance}`);
@@ -1283,6 +1283,7 @@ class FinanceTrackerApp {
                 submitBtn.textContent = 'Add Transaction';
             } else {
                 // Add new transaction
+                console.log('Adding transaction with data:', transactionData);
                 await this.transactionManager.addTransaction(transactionData);
                 Utils.showToast('Transaction added successfully!', 'success');
             }
@@ -1291,7 +1292,8 @@ class FinanceTrackerApp {
             event.target.reset();
             this.setDefaultTransactionDate();
             
-            // Refresh data
+            // Refresh data with debug info
+            console.log('Refreshing dashboard after transaction...');
             await this.loadDashboard();
             if (this.currentTab === 'history') {
                 await this.loadTransactionHistory();
