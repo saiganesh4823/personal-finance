@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend/server.js",
+      "src": "api/**/*.js",
       "use": "@vercel/node"
     },
     {
@@ -24,28 +24,16 @@
   ],
   "routes": [
     {
-      "src": "/api/test",
-      "dest": "/api/test.js"
-    },
-    {
-      "src": "/api/health",
-      "dest": "/api/health.js"
-    },
-    {
       "src": "/auth/google",
       "dest": "/api/auth/google.js"
     },
     {
+      "src": "/auth/login",
+      "dest": "/api/auth/login.js"
+    },
+    {
       "src": "/api/(.*)",
-      "dest": "/backend/server.js"
-    },
-    {
-      "src": "/auth/(.*)",
-      "dest": "/backend/server.js"
-    },
-    {
-      "src": "/user/(.*)",
-      "dest": "/backend/server.js"
+      "dest": "/api/$1.js"
     },
     {
       "src": "/(.*)",
