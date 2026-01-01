@@ -1,14 +1,25 @@
 // Google OAuth callback endpoint for Vercel serverless
-const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+);
 
 export default async function handler(req, res) {
+    console.log('=== CALLBACK FUNCTION STARTED ===');
+    console.log('Method:', req.method);
+    console.log('Query params:', req.query);
+    console.log('Environment check:', {
+        hasDbUrl: !!process.env.DATABASE_URL,
+        hasJwtSecret: !!process.env.JWT_SECRET,
+        hasFrontendUrl: !!process.env.FRONTEND_URL,
+        hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
+        hasGoogleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET
+    });
+    
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -25,14 +36,19 @@ export default async function handler(req, res) {
     try {
         const { code, error } = req.query;
         
+        console.log('OAuth callback received:', { code: !!code, error });
+        
         if (error) {
             console.error('Google OAuth error:', error);
             return res.redirect(`${process.env.FRONTEND_URL}/login.html?error=oauth_failed`);
         }
         
         if (!code) {
+            console.error('No authorization code received');
             return res.redirect(`${process.env.FRONTEND_URL}/login.html?error=no_code`);
         }
+        
+        console.log('Exchanging code for token...');
         
         // Exchange code for access token
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -50,11 +66,14 @@ export default async function handler(req, res) {
         });
         
         const tokenData = await tokenResponse.json();
+        console.log('Token response status:', tokenResponse.status);
         
         if (!tokenData.access_token) {
             console.error('Failed to get access token:', tokenData);
             return res.redirect(`${process.env.FRONTEND_URL}/login.html?error=token_failed`);
         }
+        
+        console.log('Getting user info from Google...');
         
         // Get user info from Google
         const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -64,47 +83,81 @@ export default async function handler(req, res) {
         });
         
         const googleUser = await userResponse.json();
+        console.log('Google user info received:', { id: !!googleUser.id, email: !!googleUser.email });
         
         if (!googleUser.id) {
             console.error('Failed to get user info:', googleUser);
             return res.redirect(`${process.env.FRONTEND_URL}/login.html?error=user_info_failed`);
         }
         
+        console.log('Checking if user exists in database...');
+        
         // Check if user exists
-        let userResult = await pool.query(
-            'SELECT * FROM users WHERE email = $1 OR google_id = $2',
-            [googleUser.email, googleUser.id]
-        );
+        const { data: existingUsers, error: queryError } = await supabase
+            .from('users')
+            .select('*')
+            .or(`email.eq.${googleUser.email},google_id.eq.${googleUser.id}`);
+        
+        if (queryError) {
+            console.error('Database query error:', queryError);
+            return res.redirect(`${process.env.FRONTEND_URL}/login.html?error=db_error`);
+        }
+        
+        console.log('Database query result:', { userExists: existingUsers.length > 0 });
         
         let user;
         
-        if (userResult.rows.length === 0) {
+        if (existingUsers.length === 0) {
+            console.log('Creating new user...');
             // Create new user
             const userId = uuidv4();
             const username = googleUser.email.split('@')[0] + '_' + Math.random().toString(36).substr(2, 4);
             const databaseName = `supabase_user_${userId}`;
             
-            const insertResult = await pool.query(
-                `INSERT INTO users (id, username, email, first_name, last_name, database_name, google_id) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-                [userId, username, googleUser.email, googleUser.given_name, googleUser.family_name, databaseName, googleUser.id]
-            );
+            const { data: newUser, error: insertError } = await supabase
+                .from('users')
+                .insert([{
+                    id: userId,
+                    username: username,
+                    email: googleUser.email,
+                    first_name: googleUser.given_name,
+                    last_name: googleUser.family_name,
+                    database_name: databaseName,
+                    google_id: googleUser.id
+                }])
+                .select()
+                .single();
             
-            user = insertResult.rows[0];
+            if (insertError) {
+                console.error('User creation error:', insertError);
+                return res.redirect(`${process.env.FRONTEND_URL}/login.html?error=user_creation_failed`);
+            }
+            
+            user = newUser;
+            console.log('New user created:', { id: user.id, email: user.email });
             
             // Default categories will be created automatically by database trigger
             
         } else {
-            user = userResult.rows[0];
+            user = existingUsers[0];
+            console.log('Existing user found:', { id: user.id, email: user.email });
             
             // Update Google ID if not set
             if (!user.google_id) {
-                await pool.query(
-                    'UPDATE users SET google_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-                    [googleUser.id, user.id]
-                );
+                const { error: updateError } = await supabase
+                    .from('users')
+                    .update({ google_id: googleUser.id, updated_at: new Date().toISOString() })
+                    .eq('id', user.id);
+                
+                if (updateError) {
+                    console.error('User update error:', updateError);
+                } else {
+                    console.log('Updated user with Google ID');
+                }
             }
         }
+        
+        console.log('Generating JWT token...');
         
         // Generate JWT token
         const token = jwt.sign(
@@ -119,12 +172,15 @@ export default async function handler(req, res) {
             }
         );
         
+        console.log('JWT token generated, redirecting to frontend...');
+        
         // Redirect to frontend with token
         const redirectUrl = `${process.env.FRONTEND_URL}/index.html?token=${token}&login=success`;
         res.redirect(302, redirectUrl);
         
     } catch (error) {
         console.error('Google OAuth callback error:', error);
+        console.error('Error stack:', error.stack);
         res.redirect(`${process.env.FRONTEND_URL}/login.html?error=callback_failed`);
     }
 }
