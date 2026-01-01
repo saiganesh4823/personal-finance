@@ -122,10 +122,9 @@ class FinanceTrackerApp {
             // TEMPORARY: Force authentication for testing
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('token')) {
-                console.log('FORCING AUTHENTICATION FOR OAUTH TEST');
-                // Bypass all other initialization and just show success
-                Utils.hideLoading();
-                Utils.showToast('OAuth Success! Token received and stored.', 'success');
+                console.log('OAuth token detected, processing...');
+                // Process OAuth but continue with normal app initialization
+                Utils.showToast('OAuth Success! Initializing app...', 'success');
                 
                 // Update URL to remove token
                 const cleanUrl = window.location.origin + window.location.pathname;
@@ -137,7 +136,7 @@ class FinanceTrackerApp {
                     this.updateUserDisplay(userInfo);
                 }
                 
-                return; // Skip normal initialization
+                // Continue with normal initialization instead of returning
             }
             
             // Initialize database first
@@ -1575,18 +1574,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Wait a bit to ensure all scripts are loaded
         if (!window.AuthManager) {
             console.error('AuthManager not available');
-            // TEMPORARILY DISABLED FOR OAUTH TESTING
-            console.log('Skipping AuthManager redirect for OAuth testing');
             return;
         }
         
         // Initialize authentication first
         await window.AuthManager.initialize();
         
-        // Check if user is authenticated
-        if (!window.AuthManager.isAuthenticated()) {
-            // TEMPORARILY DISABLED FOR OAUTH TESTING
-            console.log('User not authenticated, but skipping redirect for OAuth testing');
+        // Check for OAuth token first (before auth check)
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasOAuthToken = urlParams.get('token') && urlParams.get('login') === 'success';
+        
+        if (!hasOAuthToken && !window.AuthManager.isAuthenticated()) {
+            // Only redirect if no OAuth token and not authenticated
+            console.log('No OAuth token and not authenticated, redirecting to login');
+            window.location.href = 'login.html';
             return;
         }
         
@@ -1611,9 +1612,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     } catch (error) {
         console.error('App initialization error:', error);
-        // TEMPORARILY DISABLED FOR OAUTH TESTING
-        console.log('Skipping error redirect for OAuth testing');
-        Utils.showToast('App initialization error (redirects disabled for OAuth testing)', 'error');
+        // If there's an authentication error, redirect to login (unless OAuth token present)
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasOAuthToken = urlParams.get('token') && urlParams.get('login') === 'success';
+        
+        if (!hasOAuthToken && error.message && (error.message.includes('Authentication') || error.message.includes('Token'))) {
+            window.location.href = 'login.html';
+        } else {
+            Utils.showToast('Failed to initialize application', 'error');
+        }
     }
 });
 

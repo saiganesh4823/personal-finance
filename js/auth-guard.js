@@ -61,14 +61,6 @@ class AuthGuard {
      * Perform the actual authentication check
      */
     performAuthCheckOnLoad() {
-        // TEMPORARILY DISABLED - NO REDIRECTS FOR OAUTH TESTING
-        console.log('AuthGuard auth check temporarily disabled for OAuth testing');
-        console.log('Current localStorage:', {
-            accessToken: !!localStorage.getItem('accessToken'),
-            user: !!localStorage.getItem('user')
-        });
-        return;
-        
         const currentPath = window.location.pathname;
         const isAuthenticated = window.AuthManager.isAuthenticated();
         
