@@ -122,13 +122,20 @@
                 </div>
                 
                 <form id="transaction-form" class="transaction-form">
+                    <!-- Transaction Type Selection -->
                     <div class="form-group">
-                        <label for="transaction-type">Type</label>
-                        <select id="transaction-type" name="type" required>
-                            <option value="">Select Type</option>
-                            <option value="income">Income</option>
-                            <option value="expense">Expense</option>
-                        </select>
+                        <label>Transaction Type</label>
+                        <div class="button-group" id="type-buttons">
+                            <button type="button" class="btn-option" data-type="expense" data-color="#e74c3c">
+                                <span class="btn-icon">💸</span>
+                                <span class="btn-text">Expense</span>
+                            </button>
+                            <button type="button" class="btn-option" data-type="income" data-color="#27ae60">
+                                <span class="btn-icon">💰</span>
+                                <span class="btn-text">Income</span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="transaction-type" name="type" required>
                     </div>
 
                     <div class="form-group">
@@ -136,12 +143,13 @@
                         <input type="number" id="transaction-amount" name="amount" step="0.01" min="0" placeholder="0.00" required>
                     </div>
 
+                    <!-- Category Selection -->
                     <div class="form-group">
-                        <label for="transaction-category">Category</label>
-                        <select id="transaction-category" name="category" required>
-                            <option value="">Select Category</option>
-                            <!-- Categories will be populated dynamically -->
-                        </select>
+                        <label>Category</label>
+                        <div class="category-grid" id="category-buttons">
+                            <!-- Categories will be populated dynamically as buttons -->
+                        </div>
+                        <input type="hidden" id="transaction-category" name="category" required>
                     </div>
 
                     <div class="form-group">

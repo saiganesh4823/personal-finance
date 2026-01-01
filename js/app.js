@@ -19,39 +19,13 @@ class FinanceTrackerApp {
      * Handle OAuth callback with token
      */
     async handleOAuthCallback() {
-        // Create persistent debug display
-        const debugDiv = document.createElement('div');
-        debugDiv.id = 'oauth-debug';
-        debugDiv.style.cssText = `
-            position: fixed; top: 10px; left: 10px; 
-            background: black; color: white; 
-            padding: 10px; font-size: 12px; 
-            z-index: 99999; max-width: 400px;
-            border-radius: 5px;
-        `;
-        document.body.appendChild(debugDiv);
-        
-        const log = (msg) => {
-            console.log(msg);
-            debugDiv.innerHTML += msg + '<br>';
-        };
-        
-        log('=== OAUTH CALLBACK CHECK ===');
-        log('Current URL: ' + window.location.href);
-        
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const loginSuccess = urlParams.get('login');
         
-        log('Token present: ' + (token ? 'YES' : 'NO'));
-        log('Login success: ' + loginSuccess);
-        
         if (token && loginSuccess === 'success') {
-            log('Processing OAuth token...');
-            
             // Store the JWT token with the key AuthManager expects
             localStorage.setItem('accessToken', token);
-            log('Token stored in localStorage as accessToken');
             
             // Decode and store user info
             try {
@@ -63,42 +37,23 @@ class FinanceTrackerApp {
                 };
                 // Store user info with the key AuthManager expects
                 localStorage.setItem('user', JSON.stringify(userInfo));
-                log('User info stored: ' + userInfo.username);
                 
-                // IMPORTANT: Force AuthManager to reload from storage immediately
+                // Force AuthManager to reload from storage immediately
                 if (window.AuthManager) {
                     window.AuthManager.loadFromStorage();
-                    log('AuthManager reloaded from storage');
                 }
                 
                 // Update UI with user info
                 this.updateUserDisplay(userInfo);
                 
                 Utils.showToast('Login successful! Welcome back!', 'success');
-                log('Success toast shown');
             } catch (error) {
-                log('Error decoding token: ' + error.message);
+                console.error('Error decoding token:', error);
             }
             
             // Clean up URL parameters
             const cleanUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, document.title, cleanUrl);
-            log('URL cleaned up');
-            
-            // Remove debug display after 5 seconds
-            setTimeout(() => {
-                if (debugDiv.parentNode) {
-                    debugDiv.parentNode.removeChild(debugDiv);
-                }
-            }, 5000);
-        } else {
-            log('No OAuth callback detected');
-            // Remove debug display after 2 seconds if no OAuth
-            setTimeout(() => {
-                if (debugDiv.parentNode) {
-                    debugDiv.parentNode.removeChild(debugDiv);
-                }
-            }, 2000);
         }
     }
 
@@ -247,24 +202,68 @@ class FinanceTrackerApp {
             });
         }
 
-        // Type change handler to update categories
-        const typeSelect = document.getElementById('transaction-type');
-        if (typeSelect) {
-            typeSelect.addEventListener('change', () => {
-                this.updateCategoryOptions();
-            });
-        }
-
+        // Type button selection
+        this.setupTypeButtons();
+        
+        // Category button selection will be set up when categories are loaded
+        
         // Real-time validation
         const amountInput = document.getElementById('transaction-amount');
         if (amountInput) {
             amountInput.addEventListener('input', this.validateTransactionForm.bind(this));
         }
+    }
 
-        const categorySelect = document.getElementById('transaction-category');
-        if (categorySelect) {
-            categorySelect.addEventListener('change', this.validateTransactionForm.bind(this));
-        }
+    /**
+     * Set up transaction type button listeners
+     */
+    setupTypeButtons() {
+        const typeButtons = document.querySelectorAll('#type-buttons .btn-option');
+        const hiddenTypeInput = document.getElementById('transaction-type');
+        
+        typeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove selected class from all buttons
+                typeButtons.forEach(btn => btn.classList.remove('selected'));
+                
+                // Add selected class to clicked button
+                button.classList.add('selected');
+                
+                // Update hidden input value
+                const type = button.dataset.type;
+                hiddenTypeInput.value = type;
+                
+                // Update categories based on selected type
+                this.updateCategoryButtons(type);
+                
+                // Validate form
+                this.validateTransactionForm();
+            });
+        });
+    }
+
+    /**
+     * Set up category button listeners
+     */
+    setupCategoryButtons() {
+        const categoryButtons = document.querySelectorAll('#category-buttons .category-btn');
+        const hiddenCategoryInput = document.getElementById('transaction-category');
+        
+        categoryButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove selected class from all category buttons
+                categoryButtons.forEach(btn => btn.classList.remove('selected'));
+                
+                // Add selected class to clicked button
+                button.classList.add('selected');
+                
+                // Update hidden input value
+                hiddenCategoryInput.value = button.dataset.categoryId;
+                
+                // Validate form
+                this.validateTransactionForm();
+            });
+        });
     }
 
     /**
@@ -273,8 +272,8 @@ class FinanceTrackerApp {
     validateTransactionForm() {
         const form = document.getElementById('transaction-form');
         const amountInput = document.getElementById('transaction-amount');
-        const typeSelect = document.getElementById('transaction-type');
-        const categorySelect = document.getElementById('transaction-category');
+        const hiddenTypeInput = document.getElementById('transaction-type');
+        const hiddenCategoryInput = document.getElementById('transaction-category');
         const submitBtn = form.querySelector('button[type="submit"]');
 
         let isValid = true;
@@ -291,14 +290,16 @@ class FinanceTrackerApp {
         }
 
         // Validate type
-        if (!typeSelect.value) {
-            this.showFieldError(typeSelect, 'Please select a transaction type');
+        if (!hiddenTypeInput.value) {
+            const typeGroup = document.querySelector('#type-buttons').closest('.form-group');
+            this.showFieldError(typeGroup, 'Please select a transaction type');
             isValid = false;
         }
 
         // Validate category
-        if (!categorySelect.value) {
-            this.showFieldError(categorySelect, 'Please select a category');
+        if (!hiddenCategoryInput.value) {
+            const categoryGroup = document.querySelector('#category-buttons').closest('.form-group');
+            this.showFieldError(categoryGroup, 'Please select a category');
             isValid = false;
         }
 
@@ -308,11 +309,17 @@ class FinanceTrackerApp {
 
     /**
      * Show field validation error
-     * @param {HTMLElement} field - Form field element
+     * @param {HTMLElement} field - Form field element or form group
      * @param {string} message - Error message
      */
     showFieldError(field, message) {
-        const formGroup = field.closest('.form-group');
+        let formGroup;
+        if (field.classList.contains('form-group')) {
+            formGroup = field;
+        } else {
+            formGroup = field.closest('.form-group');
+        }
+        
         formGroup.classList.add('error');
         
         const errorElement = document.createElement('div');
@@ -513,9 +520,7 @@ class FinanceTrackerApp {
         if (!this.database) return;
         
         try {
-            console.log('Loading dashboard data...');
-            
-            // Get current month date range - Properly fixed
+            // Get current month date range
             const now = new Date();
             const year = now.getFullYear();
             const month = now.getMonth(); // 0-based (December = 11)
@@ -523,13 +528,9 @@ class FinanceTrackerApp {
             // First day of current month
             const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
             
-            // Last day of current month - use proper calculation
+            // Last day of current month
             const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
             const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
-            
-            console.log(`Current date: ${now.toISOString()}`);
-            console.log(`Month: ${month + 1} (${now.toLocaleString('default', { month: 'long' })})`);
-            console.log(`Fetching analytics for ${startDate} to ${endDate}`);
             
             // Get analytics data using authenticated DatabaseService
             const analytics = await this.database.getAnalytics({
@@ -538,61 +539,38 @@ class FinanceTrackerApp {
             });
             
             const stats = analytics.stats;
-            console.log('Analytics data received:', stats);
             
             // Update summary cards with proper null handling
             const totalIncome = parseFloat(stats.totalIncome) || 0;
             const totalExpenses = parseFloat(stats.totalExpenses) || 0;
             const balance = totalIncome - totalExpenses;
             
-            console.log(`Updating dashboard: Income=${totalIncome}, Expenses=${totalExpenses}, Balance=${balance}`);
-            
-            // Add debugging for DOM elements
+            // Update DOM elements
             const incomeElement = document.getElementById('total-income');
             const expensesElement = document.getElementById('total-expenses');
             const balanceElement = document.getElementById('net-balance');
             
-            console.log('DOM elements found:', {
-                income: !!incomeElement,
-                expenses: !!expensesElement,
-                balance: !!balanceElement
-            });
-            
             if (incomeElement) {
                 incomeElement.textContent = Utils.formatCurrency(totalIncome);
-                console.log('Updated income element:', incomeElement.textContent);
-            } else {
-                console.error('total-income element not found!');
             }
             
             if (expensesElement) {
                 expensesElement.textContent = Utils.formatCurrency(totalExpenses);
-                console.log('Updated expenses element:', expensesElement.textContent);
-            } else {
-                console.error('total-expenses element not found!');
             }
             
             if (balanceElement) {
                 balanceElement.textContent = Utils.formatCurrency(balance);
-                console.log('Updated balance element:', balanceElement.textContent);
-            } else {
-                console.error('net-balance element not found!');
-            }
-            
-            // Update balance color based on positive/negative
-            if (balanceElement) {
+                
+                // Update balance color based on positive/negative
                 if (balance >= 0) {
                     balanceElement.className = 'amount text-success';
                 } else {
                     balanceElement.className = 'amount text-danger';
                 }
-                console.log('Updated balance color:', balanceElement.className);
             }
             
             // Load recent transactions
             await this.loadRecentTransactions();
-            
-            console.log('Dashboard loaded successfully');
             
         } catch (error) {
             console.error('Failed to load dashboard:', error);
@@ -663,7 +641,12 @@ class FinanceTrackerApp {
      * Load transaction form
      */
     async loadTransactionForm() {
-        await this.updateCategoryOptions();
+        // Initialize with expense type by default
+        const expenseButton = document.querySelector('#type-buttons [data-type="expense"]');
+        if (expenseButton) {
+            expenseButton.click(); // This will trigger the type selection and load categories
+        }
+        
         this.setDefaultTransactionDate();
     }
 
@@ -1195,48 +1178,110 @@ class FinanceTrackerApp {
     }
 
     /**
-     * Update category options in select elements
+     * Update category buttons based on selected transaction type
+     * @param {string} type - Transaction type ('income' or 'expense')
+     */
+    async updateCategoryButtons(type) {
+        if (!this.categoryManager) return;
+        
+        try {
+            const categories = await this.categoryManager.getCategories();
+            const categoryGrid = document.getElementById('category-buttons');
+            
+            if (!categoryGrid) return;
+            
+            // Filter categories by type
+            const filteredCategories = categories.filter(category => 
+                category.type === type || category.type === 'both'
+            );
+            
+            // Clear existing buttons
+            categoryGrid.innerHTML = '';
+            
+            // Create category buttons
+            filteredCategories.forEach(category => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'category-btn';
+                button.dataset.categoryId = category.id;
+                button.style.setProperty('--category-color', category.color);
+                
+                button.innerHTML = `
+                    <div class="category-icon">${this.getCategoryIcon(category.name)}</div>
+                    <div class="category-name">${category.name}</div>
+                `;
+                
+                categoryGrid.appendChild(button);
+            });
+            
+            // Set up event listeners for new buttons
+            this.setupCategoryButtons();
+            
+        } catch (error) {
+            console.error('Failed to update category buttons:', error);
+        }
+    }
+
+    /**
+     * Get icon for category
+     * @param {string} categoryName - Category name
+     * @returns {string} Icon character
+     */
+    getCategoryIcon(categoryName) {
+        const iconMap = {
+            'Food & Dining': '🍽️',
+            'Bills & Utilities': '💡',
+            'Shopping': '🛍️',
+            'Transportation': '🚗',
+            'Entertainment': '🎬',
+            'Healthcare': '🏥',
+            'Education': '📚',
+            'Travel': '✈️',
+            'Personal Care': '💄',
+            'Other Expenses': '📦',
+            'Salary': '💼',
+            'Freelance': '💻',
+            'Investment': '📈',
+            'Other Income': '💰'
+        };
+        
+        return iconMap[categoryName] || '📋';
+    }
+
+    /**
+     * Update category options in select elements (for filters)
      */
     async updateCategoryOptions() {
         if (!this.categoryManager) return;
 
-        const transactionType = document.getElementById('transaction-type')?.value;
-        const categorySelects = [
-            document.getElementById('transaction-category'),
-            document.getElementById('filter-category')
-        ];
+        const categorySelect = document.getElementById('filter-category');
 
         try {
             const categories = await this.categoryManager.getCategories();
-            const filteredCategories = categories.filter(cat => 
-                !transactionType || cat.type === 'both' || cat.type === transactionType
-            );
 
-            categorySelects.forEach(select => {
-                if (!select) return;
-
+            if (categorySelect) {
                 // Store current value
-                const currentValue = select.value;
+                const currentValue = categorySelect.value;
 
                 // Clear existing options (except first one)
-                while (select.children.length > 1) {
-                    select.removeChild(select.lastChild);
+                while (categorySelect.children.length > 1) {
+                    categorySelect.removeChild(categorySelect.lastChild);
                 }
 
                 // Add category options
-                filteredCategories.forEach(category => {
+                categories.forEach(category => {
                     const option = document.createElement('option');
                     option.value = category.id;
                     option.textContent = category.name;
                     option.style.color = category.color;
-                    select.appendChild(option);
+                    categorySelect.appendChild(option);
                 });
 
                 // Restore previous value if still valid
-                if (currentValue && filteredCategories.find(cat => cat.id === currentValue)) {
-                    select.value = currentValue;
+                if (currentValue && categories.find(cat => cat.id === currentValue)) {
+                    categorySelect.value = currentValue;
                 }
-            });
+            }
         } catch (error) {
             console.error('Failed to update category options:', error);
         }
@@ -1283,7 +1328,6 @@ class FinanceTrackerApp {
                 submitBtn.textContent = 'Add Transaction';
             } else {
                 // Add new transaction
-                console.log('Adding transaction with data:', transactionData);
                 await this.transactionManager.addTransaction(transactionData);
                 Utils.showToast('Transaction added successfully!', 'success');
             }
@@ -1292,8 +1336,7 @@ class FinanceTrackerApp {
             event.target.reset();
             this.setDefaultTransactionDate();
             
-            // Refresh data with debug info
-            console.log('Refreshing dashboard after transaction...');
+            // Refresh data
             await this.loadDashboard();
             if (this.currentTab === 'history') {
                 await this.loadTransactionHistory();
