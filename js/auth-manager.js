@@ -24,7 +24,8 @@ class AuthManager {
      */
     loadFromStorage() {
         try {
-            const token = localStorage.getItem('accessToken');
+            // Try both token keys for compatibility
+            const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
             const refreshToken = localStorage.getItem('refreshToken');
             const user = localStorage.getItem('user');
             
@@ -32,6 +33,7 @@ class AuthManager {
                 this.token = token;
                 this.refreshToken = refreshToken;
                 this.user = JSON.parse(user);
+                console.log('AuthManager loaded token from storage:', !!this.token);
             }
         } catch (error) {
             console.error('Error loading auth data from storage:', error);
