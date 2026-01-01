@@ -1,5 +1,5 @@
 /**
- * Authentication Middleware
+ * Authentication Middleware - PostgreSQL/Supabase Compatible
  * Handles JWT token verification and user context
  */
 
@@ -32,102 +32,158 @@ function createAuthMiddleware(dbManager) {
             // Verify token
             const decoded = authService.verifyToken(token);
             
-            // Get user details from master database
-            const masterConnection = await dbManager.getMasterConnection();
-            const [users] = await masterConnection.execute(
-                'SELECT id, username, email, first_name, last_name, database_name FROM users WHERE id = ? AND is_active = TRUE',
+            // Get user details from database
+            const result = await dbManager.query(
+                'SELECT id, username, email, first_name, last_name, database_name FROM users WHERE id = $1',
                 [decoded.userId]
             );
             
-            if (users.length === 0) {
+            if (result.rows.length === 0) {
                 return res.status(401).json({
                     error: 'User not found or inactive',
                     code: 'USER_NOT_FOUND'
                 });
             }
             
-            const user = users[0];
+            const user = result.rows[0];
             
             // Set user context in request
             req.user = user;
             req.userId = user.id;
-            req.userDatabase = user.database_name;
+            req.userDatabaseName = user.database_name;
             
             next();
-            
         } catch (error) {
-            console.error('Authentication error:', error.message);
+            console.error('Authentication error:', error);
             
-            if (error.message.includes('expired')) {
+            if (error.message.includes('jwt expired')) {
                 return res.status(401).json({
-                    error: 'Token has expired',
+                    error: 'Token expired',
                     code: 'TOKEN_EXPIRED'
                 });
-            } else if (error.message.includes('Invalid')) {
+            }
+            
+            if (error.message.includes('jwt malformed') || error.message.includes('invalid token')) {
                 return res.status(401).json({
                     error: 'Invalid token',
                     code: 'TOKEN_INVALID'
                 });
-            } else {
-                return res.status(500).json({
-                    error: 'Authentication failed',
-                    code: 'AUTH_ERROR'
-                });
             }
+            
+            return res.status(401).json({
+                error: 'Authentication failed',
+                code: 'AUTH_FAILED'
+            });
         }
     };
 
     /**
-     * Optional authentication middleware - doesn't fail if no token
+     * Optional authentication middleware
+     * Sets user context if token is present, but doesn't require it
      */
     const optionalAuth = async (req, res, next) => {
         try {
             const authHeader = req.headers['authorization'];
             const token = authHeader && authHeader.split(' ')[1];
 
-            if (token) {
-                const decoded = authService.verifyToken(token);
-                
-                // Get user details from master database
-                const masterConnection = await dbManager.getMasterConnection();
-                const [users] = await masterConnection.execute(
-                    'SELECT id, username, email, first_name, last_name, database_name FROM users WHERE id = ? AND is_active = TRUE',
-                    [decoded.userId]
-                );
-                
-                if (users.length > 0) {
-                    const user = users[0];
-                    req.user = user;
-                    req.userId = user.id;
-                    req.userDatabase = user.database_name;
-                }
+            if (!token) {
+                // No token provided, continue without user context
+                req.user = null;
+                req.userId = null;
+                req.userDatabaseName = null;
+                return next();
+            }
+
+            // Verify token
+            const decoded = authService.verifyToken(token);
+            
+            // Get user details
+            const result = await dbManager.query(
+                'SELECT id, username, email, first_name, last_name, database_name FROM users WHERE id = $1',
+                [decoded.userId]
+            );
+            
+            if (result.rows.length > 0) {
+                const user = result.rows[0];
+                req.user = user;
+                req.userId = user.id;
+                req.userDatabaseName = user.database_name;
+            } else {
+                req.user = null;
+                req.userId = null;
+                req.userDatabaseName = null;
             }
             
             next();
-            
         } catch (error) {
-            // Continue without authentication for optional auth
+            // If token verification fails, continue without user context
+            req.user = null;
+            req.userId = null;
+            req.userDatabaseName = null;
             next();
         }
     };
 
     /**
-     * Middleware to extract user ID from token for user-specific operations
+     * Admin authentication middleware
+     * Requires valid token and admin privileges
      */
-    const requireAuth = (req, res, next) => {
-        if (!req.userId) {
+    const requireAdmin = async (req, res, next) => {
+        try {
+            // First authenticate the token
+            await new Promise((resolve, reject) => {
+                authenticateToken(req, res, (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            });
+
+            // Check if user has admin privileges
+            const result = await dbManager.query(
+                'SELECT is_admin FROM users WHERE id = $1',
+                [req.userId]
+            );
+
+            if (result.rows.length === 0 || !result.rows[0].is_admin) {
+                return res.status(403).json({
+                    error: 'Admin privileges required',
+                    code: 'ADMIN_REQUIRED'
+                });
+            }
+
+            next();
+        } catch (error) {
+            console.error('Admin authentication error:', error);
             return res.status(401).json({
-                error: 'Authentication required',
-                code: 'AUTH_REQUIRED'
+                error: 'Authentication failed',
+                code: 'AUTH_FAILED'
             });
         }
-        next();
     };
+
+    /**
+     * Rate limiting middleware for authentication endpoints
+     */
+    const authRateLimit = require('express-rate-limit')({
+        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MINUTES || 15) * 60 * 1000,
+        max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || 5),
+        message: {
+            error: 'Too many authentication attempts',
+            code: 'RATE_LIMIT_EXCEEDED'
+        },
+        standardHeaders: true,
+        legacyHeaders: false,
+        skip: (req) => {
+            // Skip rate limiting for successful requests
+            return req.method === 'GET' || res.statusCode < 400;
+        }
+    });
 
     return {
         authenticateToken,
         optionalAuth,
-        requireAuth
+        requireAdmin,
+        authRateLimit
     };
 }
 

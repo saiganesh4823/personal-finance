@@ -1,5 +1,5 @@
 /**
- * Authentication Service
+ * Authentication Service - PostgreSQL/Supabase Compatible
  * Handles user authentication, password management, and JWT tokens
  */
 
@@ -25,8 +25,6 @@ class AuthService {
 
     /**
      * Hash a password using bcrypt
-     * @param {string} password - Plain text password
-     * @returns {Promise<string>} Hashed password
      */
     async hashPassword(password) {
         try {
@@ -39,9 +37,6 @@ class AuthService {
 
     /**
      * Compare a password with its hash
-     * @param {string} password - Plain text password
-     * @param {string} hash - Hashed password
-     * @returns {Promise<boolean>} True if password matches
      */
     async comparePassword(password, hash) {
         try {
@@ -52,459 +47,350 @@ class AuthService {
     }
 
     /**
-     * Validate password strength
-     * @param {string} password - Password to validate
-     * @returns {Object} Validation result with isValid and errors
-     */
-    validatePasswordStrength(password) {
-        const errors = [];
-        
-        if (!password || password.length < 8) {
-            errors.push('Password must be at least 8 characters long');
-        }
-        
-        if (!/[a-z]/.test(password)) {
-            errors.push('Password must contain at least one lowercase letter');
-        }
-        
-        if (!/[A-Z]/.test(password)) {
-            errors.push('Password must contain at least one uppercase letter');
-        }
-        
-        if (!/\d/.test(password)) {
-            errors.push('Password must contain at least one number');
-        }
-        
-        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-            errors.push('Password must contain at least one special character');
-        }
-        
-        return {
-            isValid: errors.length === 0,
-            errors
-        };
-    }
-
-    /**
-     * Generate JWT token for user
-     * @param {Object} user - User object
-     * @returns {Object} Token object with access and refresh tokens
+     * Generate JWT tokens
      */
     generateTokens(user) {
-        try {
-            const payload = {
-                userId: user.id,
-                username: user.username,
-                email: user.email
-            };
+        const payload = {
+            userId: user.id,
+            username: user.username,
+            email: user.email
+        };
 
-            const accessToken = jwt.sign(payload, this.jwtSecret, {
-                expiresIn: this.jwtExpiresIn,
-                issuer: 'finance-tracker',
-                audience: 'finance-tracker-users'
-            });
+        const accessToken = jwt.sign(payload, this.jwtSecret, {
+            expiresIn: this.jwtExpiresIn,
+            issuer: process.env.JWT_ISSUER || 'finance-tracker',
+            audience: process.env.JWT_AUDIENCE || 'finance-tracker-users'
+        });
 
-            const refreshToken = jwt.sign(
-                { userId: user.id, type: 'refresh' },
-                this.jwtSecret,
-                {
-                    expiresIn: this.jwtRefreshExpiresIn,
-                    issuer: 'finance-tracker',
-                    audience: 'finance-tracker-users'
-                }
-            );
+        const refreshToken = jwt.sign(payload, this.jwtSecret, {
+            expiresIn: this.jwtRefreshExpiresIn,
+            issuer: process.env.JWT_ISSUER || 'finance-tracker',
+            audience: process.env.JWT_AUDIENCE || 'finance-tracker-users'
+        });
 
-            return {
-                accessToken,
-                refreshToken,
-                expiresIn: this.jwtExpiresIn
-            };
-        } catch (error) {
-            throw new Error('Token generation failed: ' + error.message);
-        }
+        return { accessToken, refreshToken };
     }
 
     /**
      * Verify JWT token
-     * @param {string} token - JWT token to verify
-     * @returns {Object} Decoded token payload
      */
     verifyToken(token) {
         try {
             return jwt.verify(token, this.jwtSecret, {
-                issuer: 'finance-tracker',
-                audience: 'finance-tracker-users'
+                issuer: process.env.JWT_ISSUER || 'finance-tracker',
+                audience: process.env.JWT_AUDIENCE || 'finance-tracker-users'
             });
         } catch (error) {
-            if (error.name === 'TokenExpiredError') {
-                throw new Error('Token has expired');
-            } else if (error.name === 'JsonWebTokenError') {
-                throw new Error('Invalid token');
-            } else {
-                throw new Error('Token verification failed: ' + error.message);
-            }
-        }
-    }
-
-    /**
-     * Create a new user account
-     * @param {Object} userData - User registration data
-     * @returns {Promise<Object>} Created user object
-     */
-    async createUser(userData) {
-        const masterConnection = await this.dbManager.getMasterConnection();
-        
-        try {
-            await masterConnection.beginTransaction();
-
-            const { username, email, password, firstName, lastName } = userData;
-            
-            // Validate password strength
-            const passwordValidation = this.validatePasswordStrength(password);
-            if (!passwordValidation.isValid) {
-                throw new Error('Password validation failed: ' + passwordValidation.errors.join(', '));
-            }
-
-            // Check if username or email already exists
-            const [existingUsers] = await masterConnection.execute(
-                'SELECT id FROM users WHERE username = ? OR email = ?',
-                [username, email]
-            );
-
-            if (existingUsers.length > 0) {
-                throw new Error('Username or email already exists');
-            }
-
-            // Hash password
-            const passwordHash = await this.hashPassword(password);
-            
-            // Create user ID and database name
-            const userId = uuidv4();
-            const dbName = await this.dbManager.createUserDatabase(userId, username);
-            
-            // Create user in master database
-            await masterConnection.execute(
-                `INSERT INTO users (
-                    id, username, email, password_hash, first_name, last_name, database_name,
-                    is_active, email_verified, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, FALSE, NOW())`,
-                [userId, username, email, passwordHash, firstName || null, lastName || null, dbName]
-            );
-
-            // Create default categories and settings in user's database
-            await this.dbManager.createDefaultCategories(userId);
-            await this.dbManager.createDefaultSettings(userId);
-
-            await masterConnection.commit();
-
-            // Return user without password hash
-            const [newUser] = await masterConnection.execute(
-                'SELECT id, username, email, first_name, last_name, database_name, created_at, is_active FROM users WHERE id = ?',
-                [userId]
-            );
-
-            return newUser[0];
-            
-        } catch (error) {
-            await masterConnection.rollback();
-            throw error;
-        }
-    }
-
-    /**
-     * Authenticate user with username/email and password
-     * @param {string} identifier - Username or email
-     * @param {string} password - Plain text password
-     * @param {string} ipAddress - Client IP address
-     * @returns {Promise<Object>} Authentication result with user and tokens
-     */
-    async authenticateUser(identifier, password, ipAddress = null) {
-        const masterConnection = await this.dbManager.getMasterConnection();
-        
-        try {
-            // Get user by username or email
-            const [users] = await masterConnection.execute(
-                `SELECT id, username, email, password_hash, first_name, last_name, database_name,
-                        is_active, failed_login_attempts, locked_until
-                 FROM users 
-                 WHERE (username = ? OR email = ?) AND is_active = TRUE`,
-                [identifier, identifier]
-            );
-
-            if (users.length === 0) {
-                throw new Error('Invalid credentials');
-            }
-
-            const user = users[0];
-
-            // Check if account is locked
-            if (user.locked_until && new Date() < new Date(user.locked_until)) {
-                const lockoutEnd = new Date(user.locked_until);
-                throw new Error(`Account is locked until ${lockoutEnd.toLocaleString()}`);
-            }
-
-            // Verify password
-            const isPasswordValid = await this.comparePassword(password, user.password_hash);
-            
-            if (!isPasswordValid) {
-                // Increment failed login attempts
-                const newFailedAttempts = user.failed_login_attempts + 1;
-                let lockoutTime = null;
-                
-                if (newFailedAttempts >= this.maxLoginAttempts) {
-                    lockoutTime = new Date(Date.now() + this.lockoutDuration * 60 * 1000);
-                }
-                
-                await masterConnection.execute(
-                    'UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?',
-                    [newFailedAttempts, lockoutTime, user.id]
-                );
-                
-                throw new Error('Invalid credentials');
-            }
-
-            // Reset failed login attempts on successful login
-            await masterConnection.execute(
-                'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = ?',
-                [user.id]
-            );
-
-            // Generate tokens
-            const tokens = this.generateTokens(user);
-            
-            // Store session in master database
-            const sessionId = uuidv4();
-            const tokenHash = await this.hashPassword(tokens.accessToken);
-            const refreshTokenHash = await this.hashPassword(tokens.refreshToken);
-            
-            await masterConnection.execute(
-                `INSERT INTO user_sessions (
-                    id, user_id, token_hash, refresh_token_hash,
-                    expires_at, refresh_expires_at, ip_address, created_at
-                ) VALUES (?, ?, ?, ?, 
-                    DATE_ADD(NOW(), INTERVAL 24 HOUR),
-                    DATE_ADD(NOW(), INTERVAL 30 DAY),
-                    ?, NOW())`,
-                [sessionId, user.id, tokenHash, refreshTokenHash, ipAddress]
-            );
-
-            // Return user data without sensitive information
-            const userData = {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                firstName: user.first_name,
-                lastName: user.last_name,
-                databaseName: user.database_name
-            };
-
-            return {
-                user: userData,
-                tokens,
-                sessionId
-            };
-            
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    // Google OAuth Methods
-
-    /**
-     * Find user by Google ID
-     * @param {string} googleId - Google user ID
-     * @returns {Promise<Object|null>} User object or null
-     */
-    async findUserByGoogleId(googleId) {
-        try {
-            const masterConnection = await this.dbManager.getMasterConnection();
-            const [users] = await masterConnection.execute(
-                'SELECT id, username, email, first_name, last_name, google_id, profile_picture, database_name, created_at, last_login FROM users WHERE google_id = ? AND is_active = TRUE',
-                [googleId]
-            );
-
-            return users.length > 0 ? users[0] : null;
-        } catch (error) {
-            throw error;
+            throw new Error('Token verification failed: ' + error.message);
         }
     }
 
     /**
      * Find user by email
-     * @param {string} email - Email address
-     * @returns {Promise<Object|null>} User object or null
      */
     async findUserByEmail(email) {
         try {
-            const masterConnection = await this.dbManager.getMasterConnection();
-            const [users] = await masterConnection.execute(
-                'SELECT id, username, email, first_name, last_name, google_id, profile_picture, database_name, created_at, last_login FROM users WHERE email = ? AND is_active = TRUE',
+            const result = await this.dbManager.query(
+                'SELECT * FROM users WHERE email = $1',
                 [email]
             );
-
-            return users.length > 0 ? users[0] : null;
+            return result.rows[0] || null;
         } catch (error) {
-            throw error;
+            throw new Error('Database query failed: ' + error.message);
+        }
+    }
+
+    /**
+     * Find user by username
+     */
+    async findUserByUsername(username) {
+        try {
+            const result = await this.dbManager.query(
+                'SELECT * FROM users WHERE username = $1',
+                [username]
+            );
+            return result.rows[0] || null;
+        } catch (error) {
+            throw new Error('Database query failed: ' + error.message);
         }
     }
 
     /**
      * Find user by ID
-     * @param {string} userId - User ID
-     * @returns {Promise<Object|null>} User object or null
      */
     async findUserById(userId) {
         try {
-            const masterConnection = await this.dbManager.getMasterConnection();
-            const [users] = await masterConnection.execute(
-                'SELECT id, username, email, first_name, last_name, google_id, profile_picture, database_name, created_at, last_login FROM users WHERE id = ? AND is_active = TRUE',
+            const result = await this.dbManager.query(
+                'SELECT * FROM users WHERE id = $1',
                 [userId]
             );
-
-            return users.length > 0 ? users[0] : null;
+            return result.rows[0] || null;
         } catch (error) {
-            throw error;
+            throw new Error('Database query failed: ' + error.message);
         }
     }
 
     /**
-     * Create user from Google OAuth data
-     * @param {Object} googleUser - Google user data
-     * @returns {Promise<Object>} Created user object
+     * Find user by Google ID
      */
-    async createUserFromGoogle(googleUser) {
-        const masterConnection = await this.dbManager.getMasterConnection();
-        
+    async findUserByGoogleId(googleId) {
         try {
-            await masterConnection.beginTransaction();
-
-            const { googleId, email, firstName, lastName, profilePicture } = googleUser;
-            
-            // Generate username from email (fallback if needed)
-            let username = email.split('@')[0];
-            
-            // Check if username already exists and make it unique
-            const [existingUsers] = await masterConnection.execute(
-                'SELECT id FROM users WHERE username = ?',
-                [username]
+            const result = await this.dbManager.query(
+                'SELECT * FROM users WHERE google_id = $1',
+                [googleId]
             );
+            return result.rows[0] || null;
+        } catch (error) {
+            throw new Error('Database query failed: ' + error.message);
+        }
+    }
 
-            if (existingUsers.length > 0) {
-                username = `${username}_${Date.now()}`;
+    /**
+     * Create a new user
+     */
+    async createUser(userData) {
+        try {
+            const { username, email, password, firstName, lastName } = userData;
+            
+            // Check if user already exists
+            const existingUser = await this.findUserByEmail(email);
+            if (existingUser) {
+                throw new Error('User with this email already exists');
             }
 
-            // Create user ID and database
+            const existingUsername = await this.findUserByUsername(username);
+            if (existingUsername) {
+                throw new Error('Username already taken');
+            }
+
+            // Hash password
+            const passwordHash = await this.hashPassword(password);
+            
+            // Generate user ID and database name
             const userId = uuidv4();
-            const dbName = await this.dbManager.createUserDatabase(userId, username);
-            
-            // Create user in master database
-            await masterConnection.execute(
-                `INSERT INTO users (
-                    id, username, email, google_id, first_name, last_name, profile_picture, database_name,
-                    is_active, email_verified, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, TRUE, NOW())`,
-                [userId, username, email, googleId, firstName || null, lastName || null, profilePicture || null, dbName]
+            const databaseName = `supabase_user_${userId}`;
+
+            // Create user
+            const result = await this.dbManager.query(
+                `INSERT INTO users (id, username, email, password_hash, first_name, last_name, database_name) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                [userId, username, email, passwordHash, firstName, lastName, databaseName]
             );
 
-            // Create default categories and settings in user's database
-            await this.dbManager.createDefaultCategories(userId);
-            await this.dbManager.createDefaultSettings(userId);
+            const user = result.rows[0];
 
-            await masterConnection.commit();
+            // Create default categories for the user
+            await this.createDefaultCategories(userId);
 
-            // Return user
-            const [newUser] = await masterConnection.execute(
-                'SELECT id, username, email, first_name, last_name, google_id, profile_picture, database_name, created_at FROM users WHERE id = ?',
-                [userId]
-            );
-
-            return newUser[0];
-            
+            return user;
         } catch (error) {
-            await masterConnection.rollback();
-            throw error;
+            throw new Error('User creation failed: ' + error.message);
         }
     }
 
     /**
-     * Create session for user
-     * @param {string} userId - User ID
-     * @param {string} accessToken - Access token
-     * @param {string} refreshToken - Refresh token
-     * @param {string} ipAddress - IP address
-     * @returns {Promise<string>} Session ID
+     * Create user from Google OAuth
      */
-    async createSession(userId, accessToken, refreshToken, ipAddress = null) {
+    async createUserFromGoogle(googleData) {
         try {
-            const masterConnection = await this.dbManager.getMasterConnection();
-            const sessionId = uuidv4();
-            const tokenHash = await this.hashPassword(accessToken);
-            const refreshTokenHash = await this.hashPassword(refreshToken);
+            const { googleId, email, firstName, lastName, profilePicture } = googleData;
             
-            await masterConnection.execute(
-                `INSERT INTO user_sessions (
-                    id, user_id, token_hash, refresh_token_hash,
-                    expires_at, refresh_expires_at, ip_address, created_at
-                ) VALUES (?, ?, ?, ?, 
-                    DATE_ADD(NOW(), INTERVAL 24 HOUR),
-                    DATE_ADD(NOW(), INTERVAL 30 DAY),
-                    ?, NOW())`,
-                [sessionId, userId, tokenHash, refreshTokenHash, ipAddress]
+            // Generate username from email
+            const username = email.split('@')[0] + '_' + Math.random().toString(36).substr(2, 4);
+            
+            const userId = uuidv4();
+            const databaseName = `supabase_user_${userId}`;
+
+            const result = await this.dbManager.query(
+                `INSERT INTO users (id, username, email, first_name, last_name, database_name, google_id, profile_picture) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+                [userId, username, email, firstName, lastName, databaseName, googleId, profilePicture]
             );
 
-            return sessionId;
+            const user = result.rows[0];
+
+            // Create default categories for the user
+            await this.createDefaultCategories(userId);
+
+            return user;
         } catch (error) {
-            throw error;
+            throw new Error('Google user creation failed: ' + error.message);
         }
     }
 
     /**
      * Link Google account to existing user
-     * @param {string} userId - User ID
-     * @param {string} googleId - Google user ID
-     * @param {string} profilePicture - Profile picture URL
-     * @returns {Promise<void>}
      */
-    async linkGoogleAccount(userId, googleId, profilePicture = null) {
+    async linkGoogleAccount(userId, googleId, profilePicture) {
         try {
-            const masterConnection = await this.dbManager.getMasterConnection();
-            
-            // Check if Google ID is already linked to another user
-            const [existingUsers] = await masterConnection.execute(
-                'SELECT id FROM users WHERE google_id = ? AND id != ?',
-                [googleId, userId]
-            );
-
-            if (existingUsers.length > 0) {
-                throw new Error('Google account is already linked to another user');
-            }
-
-            // Link Google account
-            await masterConnection.execute(
-                'UPDATE users SET google_id = ?, profile_picture = ?, updated_at = NOW() WHERE id = ?',
+            await this.dbManager.query(
+                'UPDATE users SET google_id = $1, profile_picture = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
                 [googleId, profilePicture, userId]
             );
-
         } catch (error) {
-            throw error;
+            throw new Error('Google account linking failed: ' + error.message);
         }
     }
 
     /**
-     * Unlink Google account from user
-     * @param {string} userId - User ID
-     * @returns {Promise<void>}
+     * Create default categories for a new user
      */
-    async unlinkGoogleAccount(userId) {
+    async createDefaultCategories(userId) {
         try {
-            const masterConnection = await this.dbManager.getMasterConnection();
-            await masterConnection.execute(
-                'UPDATE users SET google_id = NULL, updated_at = NOW() WHERE id = ?',
-                [userId]
+            const defaultCategories = [
+                // Expense categories
+                { name: 'Food & Dining', color: '#e74c3c', type: 'expense' },
+                { name: 'Bills & Utilities', color: '#34495e', type: 'expense' },
+                { name: 'Shopping', color: '#9b59b6', type: 'expense' },
+                { name: 'Transportation', color: '#f39c12', type: 'expense' },
+                { name: 'Entertainment', color: '#e67e22', type: 'expense' },
+                { name: 'Healthcare', color: '#1abc9c', type: 'expense' },
+                { name: 'Education', color: '#3498db', type: 'expense' },
+                { name: 'Travel', color: '#2ecc71', type: 'expense' },
+                { name: 'Personal Care', color: '#f1c40f', type: 'expense' },
+                { name: 'Other Expenses', color: '#95a5a6', type: 'expense' },
+                
+                // Income categories
+                { name: 'Salary', color: '#27ae60', type: 'income' },
+                { name: 'Freelance', color: '#16a085', type: 'income' },
+                { name: 'Investment', color: '#2980b9', type: 'income' },
+                { name: 'Other Income', color: '#8e44ad', type: 'income' }
+            ];
+
+            for (const category of defaultCategories) {
+                const categoryId = uuidv4();
+                await this.dbManager.query(
+                    'INSERT INTO categories (id, user_id, name, color, type, is_default) VALUES ($1, $2, $3, $4, $5, $6)',
+                    [categoryId, userId, category.name, category.color, category.type, true]
+                );
+            }
+        } catch (error) {
+            console.error('Failed to create default categories:', error);
+            // Don't throw error here as user creation should still succeed
+        }
+    }
+
+    /**
+     * Authenticate user login
+     */
+    async authenticateUser(identifier, password) {
+        try {
+            // Find user by email or username
+            let user = await this.findUserByEmail(identifier);
+            if (!user) {
+                user = await this.findUserByUsername(identifier);
+            }
+
+            if (!user) {
+                throw new Error('Invalid credentials');
+            }
+
+            // Check password
+            const isValidPassword = await this.comparePassword(password, user.password_hash);
+            if (!isValidPassword) {
+                throw new Error('Invalid credentials');
+            }
+
+            // Generate tokens
+            const tokens = this.generateTokens(user);
+
+            // Store refresh token
+            await this.storeRefreshToken(user.id, tokens.refreshToken);
+
+            return {
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    firstName: user.first_name,
+                    lastName: user.last_name,
+                    databaseName: user.database_name
+                },
+                ...tokens
+            };
+        } catch (error) {
+            throw new Error('Authentication failed: ' + error.message);
+        }
+    }
+
+    /**
+     * Store refresh token
+     */
+    async storeRefreshToken(userId, refreshToken) {
+        try {
+            const sessionId = uuidv4();
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
+
+            await this.dbManager.query(
+                'INSERT INTO user_sessions (id, user_id, session_token, refresh_token, expires_at) VALUES ($1, $2, $3, $4, $5)',
+                [sessionId, userId, sessionId, refreshToken, expiresAt]
             );
         } catch (error) {
-            throw error;
+            console.error('Failed to store refresh token:', error);
+            // Don't throw error as login should still succeed
+        }
+    }
+
+    /**
+     * Logout user
+     */
+    async logout(userId, sessionId = null) {
+        try {
+            if (sessionId) {
+                await this.dbManager.query(
+                    'DELETE FROM user_sessions WHERE user_id = $1 AND session_token = $2',
+                    [userId, sessionId]
+                );
+            } else {
+                // Logout from all sessions
+                await this.dbManager.query(
+                    'DELETE FROM user_sessions WHERE user_id = $1',
+                    [userId]
+                );
+            }
+        } catch (error) {
+            console.error('Logout failed:', error);
+            // Don't throw error as logout should be graceful
+        }
+    }
+
+    /**
+     * Refresh access token
+     */
+    async refreshAccessToken(refreshToken) {
+        try {
+            // Verify refresh token
+            const decoded = this.verifyToken(refreshToken);
+            
+            // Find user
+            const user = await this.findUserById(decoded.userId);
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            // Check if refresh token exists in database
+            const session = await this.dbManager.query(
+                'SELECT * FROM user_sessions WHERE user_id = $1 AND refresh_token = $2 AND expires_at > CURRENT_TIMESTAMP',
+                [user.id, refreshToken]
+            );
+
+            if (session.rows.length === 0) {
+                throw new Error('Invalid refresh token');
+            }
+
+            // Generate new tokens
+            const tokens = this.generateTokens(user);
+
+            // Update refresh token in database
+            await this.dbManager.query(
+                'UPDATE user_sessions SET refresh_token = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND refresh_token = $3',
+                [tokens.refreshToken, user.id, refreshToken]
+            );
+
+            return tokens;
+        } catch (error) {
+            throw new Error('Token refresh failed: ' + error.message);
         }
     }
 }
