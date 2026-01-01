@@ -19,24 +19,39 @@ class FinanceTrackerApp {
      * Handle OAuth callback with token
      */
     async handleOAuthCallback() {
-        console.log('=== CHECKING FOR OAUTH CALLBACK ===');
-        console.log('Current URL:', window.location.href);
+        // Create persistent debug display
+        const debugDiv = document.createElement('div');
+        debugDiv.id = 'oauth-debug';
+        debugDiv.style.cssText = `
+            position: fixed; top: 10px; left: 10px; 
+            background: black; color: white; 
+            padding: 10px; font-size: 12px; 
+            z-index: 99999; max-width: 400px;
+            border-radius: 5px;
+        `;
+        document.body.appendChild(debugDiv);
+        
+        const log = (msg) => {
+            console.log(msg);
+            debugDiv.innerHTML += msg + '<br>';
+        };
+        
+        log('=== OAUTH CALLBACK CHECK ===');
+        log('Current URL: ' + window.location.href);
         
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const loginSuccess = urlParams.get('login');
         
-        console.log('URL Parameters:', {
-            token: token ? 'Present' : 'Missing',
-            loginSuccess: loginSuccess,
-            allParams: Object.fromEntries(urlParams.entries())
-        });
+        log('Token present: ' + (token ? 'YES' : 'NO'));
+        log('Login success: ' + loginSuccess);
         
         if (token && loginSuccess === 'success') {
-            console.log('OAuth login successful, storing token');
+            log('Processing OAuth token...');
             
             // Store the JWT token
             localStorage.setItem('authToken', token);
+            log('Token stored in localStorage');
             
             // Decode and store user info
             try {
@@ -47,23 +62,36 @@ class FinanceTrackerApp {
                     email: payload.email
                 };
                 localStorage.setItem('userInfo', JSON.stringify(userInfo));
-                
-                console.log('User info stored:', userInfo);
+                log('User info stored: ' + userInfo.username);
                 
                 // Update UI with user info
                 this.updateUserDisplay(userInfo);
                 
                 Utils.showToast('Login successful! Welcome back!', 'success');
+                log('Success toast shown');
             } catch (error) {
-                console.error('Error decoding token:', error);
+                log('Error decoding token: ' + error.message);
             }
             
             // Clean up URL parameters
             const cleanUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, document.title, cleanUrl);
-            console.log('URL cleaned up');
+            log('URL cleaned up');
+            
+            // Remove debug display after 5 seconds
+            setTimeout(() => {
+                if (debugDiv.parentNode) {
+                    debugDiv.parentNode.removeChild(debugDiv);
+                }
+            }, 5000);
         } else {
-            console.log('No OAuth callback detected');
+            log('No OAuth callback detected');
+            // Remove debug display after 2 seconds if no OAuth
+            setTimeout(() => {
+                if (debugDiv.parentNode) {
+                    debugDiv.parentNode.removeChild(debugDiv);
+                }
+            }, 2000);
         }
     }
 
