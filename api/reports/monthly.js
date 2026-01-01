@@ -10,7 +10,7 @@ const supabase = createClient(
 
 // Create email transporter
 const createTransporter = () => {
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
         service: 'gmail',
         auth: {
             user: process.env.SMTP_EMAIL,
@@ -174,6 +174,12 @@ const generateEmailHTML = (reportData, userName) => {
 };
 
 export default async function handler(req, res) {
+    console.log('Monthly reports API called:', {
+        method: req.method,
+        url: req.url,
+        headers: req.headers.authorization ? 'Bearer token present' : 'No auth header'
+    });
+    
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
@@ -203,17 +209,19 @@ export default async function handler(req, res) {
             // Get user info
             const { data: user, error: userError } = await supabase
                 .from('users')
-                .select('name, email')
+                .select('first_name, last_name, email')
                 .eq('id', userId)
                 .single();
             
             if (userError || !user) {
+                console.error('User lookup error:', userError);
                 return res.status(404).json({ error: 'User not found' });
             }
             
             // Generate report
+            const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'User';
             const reportData = await generateMonthlyReport(userId, reportMonth, reportYear);
-            const emailHTML = generateEmailHTML(reportData, user.name);
+            const emailHTML = generateEmailHTML(reportData, userName);
             
             // Send email
             const transporter = createTransporter();
@@ -245,7 +253,7 @@ export default async function handler(req, res) {
             // Get all users who have email notifications enabled
             const { data: users, error: usersError } = await supabase
                 .from('users')
-                .select('id, name, email')
+                .select('id, first_name, last_name, email')
                 .eq('email_notifications', true);
             
             if (usersError) {
@@ -265,7 +273,8 @@ export default async function handler(req, res) {
                     
                     // Only send if user had transactions in the month
                     if (reportData.summary.transactionCount > 0) {
-                        const emailHTML = generateEmailHTML(reportData, user.name);
+                        const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'User';
+                        const emailHTML = generateEmailHTML(reportData, userName);
                         
                         const mailOptions = {
                             from: `"Personal Finance Tracker" <${process.env.SMTP_EMAIL}>`,
