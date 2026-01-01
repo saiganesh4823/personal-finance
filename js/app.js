@@ -16,11 +16,65 @@ class FinanceTrackerApp {
     }
 
     /**
+     * Handle OAuth callback with token
+     */
+    async handleOAuthCallback() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const loginSuccess = urlParams.get('login');
+        
+        if (token && loginSuccess === 'success') {
+            console.log('OAuth login successful, storing token');
+            
+            // Store the JWT token
+            localStorage.setItem('authToken', token);
+            
+            // Decode and store user info
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const userInfo = {
+                    userId: payload.userId,
+                    username: payload.username,
+                    email: payload.email
+                };
+                localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                
+                // Update UI with user info
+                this.updateUserDisplay(userInfo);
+                
+                Utils.showToast('Login successful! Welcome back!', 'success');
+            } catch (error) {
+                console.error('Error decoding token:', error);
+            }
+            
+            // Clean up URL parameters
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
+    }
+
+    /**
+     * Update user display in navigation
+     */
+    updateUserDisplay(userInfo) {
+        const userNameElement = document.getElementById('user-name');
+        const userEmailElement = document.getElementById('user-email');
+        const userDisplayNameElement = document.getElementById('user-display-name');
+        
+        if (userNameElement) userNameElement.textContent = userInfo.username;
+        if (userEmailElement) userEmailElement.textContent = userInfo.email;
+        if (userDisplayNameElement) userDisplayNameElement.textContent = userInfo.username;
+    }
+
+    /**
      * Initialize the application
      */
     async init() {
         try {
             Utils.showLoading();
+            
+            // Check for OAuth success token first
+            await this.handleOAuthCallback();
             
             // Initialize database first
             this.database = new DatabaseService();
