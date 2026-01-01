@@ -118,6 +118,11 @@ class FinanceTrackerApp {
             // Load initial data
             await this.loadDashboard();
             
+            // Initialize settings if on settings tab
+            if (window.location.hash === '#settings') {
+                await this.loadSettings();
+            }
+            
             // Set current date as default in transaction form
             this.setDefaultTransactionDate();
             
@@ -154,6 +159,9 @@ class FinanceTrackerApp {
         
         // Import/Export
         this.setupImportExportListeners();
+        
+        // Settings
+        this.setupSettingsListeners();
         
         // Mobile navigation
         this.setupMobileNavigation();
@@ -438,6 +446,35 @@ class FinanceTrackerApp {
     }
 
     /**
+     * Set up settings event listeners
+     */
+    setupSettingsListeners() {
+        // Email notifications toggle
+        const emailToggle = document.getElementById('email-notifications-toggle');
+        if (emailToggle) {
+            emailToggle.addEventListener('change', (e) => {
+                this.updateEmailNotifications(e.target.checked);
+            });
+        }
+
+        // Send test report button
+        const testReportBtn = document.getElementById('send-test-report');
+        if (testReportBtn) {
+            testReportBtn.addEventListener('click', () => {
+                this.sendTestReport();
+            });
+        }
+
+        // Generate report button
+        const generateReportBtn = document.getElementById('generate-report');
+        if (generateReportBtn) {
+            generateReportBtn.addEventListener('click', () => {
+                this.generateMonthlyReport();
+            });
+        }
+    }
+
+    /**
      * Set up mobile navigation
      */
     setupMobileNavigation() {
@@ -504,6 +541,9 @@ class FinanceTrackerApp {
                     break;
                 case 'categories':
                     await this.loadCategories();
+                    break;
+                case 'settings':
+                    await this.loadSettings();
                     break;
             }
         } catch (error) {
@@ -1615,6 +1655,163 @@ class FinanceTrackerApp {
             console.error('Import failed:', error);
             Utils.hideLoading();
             Utils.showToast('Failed to import data: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Load settings page
+     */
+    async loadSettings() {
+        try {
+            // Load user settings
+            const response = await this.database.authenticatedRequest('/user/settings');
+            if (!response.ok) {
+                throw new Error('Failed to load settings');
+            }
+            
+            const settings = await response.json();
+            
+            // Update UI with settings
+            document.getElementById('email-notifications-toggle').checked = settings.emailNotifications;
+            document.getElementById('user-email-display').textContent = settings.email;
+            document.getElementById('profile-name').textContent = `${settings.firstName || ''} ${settings.lastName || ''}`.trim() || 'Not set';
+            document.getElementById('profile-email').textContent = settings.email;
+            
+            // Populate year dropdown
+            this.populateYearDropdown();
+            
+            // Set current month as default
+            const currentMonth = new Date().getMonth() + 1;
+            document.getElementById('report-month').value = currentMonth;
+            
+        } catch (error) {
+            console.error('Failed to load settings:', error);
+            Utils.showToast('Failed to load settings: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Populate year dropdown for reports
+     */
+    populateYearDropdown() {
+        const yearSelect = document.getElementById('report-year');
+        const currentYear = new Date().getFullYear();
+        
+        yearSelect.innerHTML = '';
+        
+        // Add years from 2020 to current year + 1
+        for (let year = 2020; year <= currentYear + 1; year++) {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            if (year === currentYear) {
+                option.selected = true;
+            }
+            yearSelect.appendChild(option);
+        }
+    }
+
+    /**
+     * Update email notification settings
+     */
+    async updateEmailNotifications(enabled) {
+        try {
+            const response = await this.database.authenticatedRequest('/user/settings', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    emailNotifications: enabled
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update settings');
+            }
+
+            const result = await response.json();
+            Utils.showToast(
+                enabled ? 'Email notifications enabled' : 'Email notifications disabled', 
+                'success'
+            );
+            
+        } catch (error) {
+            console.error('Failed to update email notifications:', error);
+            Utils.showToast('Failed to update settings: ' + error.message, 'error');
+            
+            // Revert toggle state
+            document.getElementById('email-notifications-toggle').checked = !enabled;
+        }
+    }
+
+    /**
+     * Send test monthly report
+     */
+    async sendTestReport() {
+        try {
+            Utils.showLoading();
+            
+            const response = await this.database.authenticatedRequest('/reports/monthly', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    month: new Date().getMonth() + 1,
+                    year: new Date().getFullYear()
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to send test report');
+            }
+
+            const result = await response.json();
+            Utils.hideLoading();
+            Utils.showToast('Test report sent successfully!', 'success');
+            
+        } catch (error) {
+            console.error('Failed to send test report:', error);
+            Utils.hideLoading();
+            Utils.showToast('Failed to send test report: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Generate monthly report for specific month/year
+     */
+    async generateMonthlyReport() {
+        try {
+            const month = parseInt(document.getElementById('report-month').value);
+            const year = parseInt(document.getElementById('report-year').value);
+            
+            Utils.showLoading();
+            
+            const response = await this.database.authenticatedRequest('/reports/monthly', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ month, year })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to generate report');
+            }
+
+            const result = await response.json();
+            Utils.hideLoading();
+            
+            const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
+            Utils.showToast(`Monthly report for ${monthName} ${year} sent successfully!`, 'success');
+            
+        } catch (error) {
+            console.error('Failed to generate monthly report:', error);
+            Utils.hideLoading();
+            Utils.showToast('Failed to generate report: ' + error.message, 'error');
         }
     }
 }

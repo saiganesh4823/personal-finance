@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_name VARCHAR(50),
     database_name VARCHAR(100) UNIQUE NOT NULL,
     google_id VARCHAR(100) UNIQUE,
+    email_notifications BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -81,13 +82,34 @@ BEGIN
     (p_user_id, 'Education', '#3498db', 'expense', TRUE),
     (p_user_id, 'Travel', '#2ecc71', 'expense', TRUE),
     (p_user_id, 'Personal Care', '#f1c40f', 'expense', TRUE),
+    (p_user_id, 'Family', '#ff69b4', 'expense', TRUE),
+    (p_user_id, 'Gym & Fitness', '#32cd32', 'expense', TRUE),
+    
+    -- Financial categories
+    (p_user_id, 'Loan EMI', '#dc3545', 'expense', TRUE),
+    (p_user_id, 'Credit Card Payment', '#fd7e14', 'expense', TRUE),
+    (p_user_id, 'SIP & Mutual Funds', '#4169e1', 'expense', TRUE),
+    (p_user_id, 'Savings', '#ffd700', 'expense', TRUE),
+    (p_user_id, 'Insurance Premium', '#6f42c1', 'expense', TRUE),
+    (p_user_id, 'Tax Payment', '#20c997', 'expense', TRUE),
+    (p_user_id, 'Fixed Deposit', '#17a2b8', 'expense', TRUE),
+    (p_user_id, 'Stock Investment', '#28a745', 'expense', TRUE),
+    (p_user_id, 'Rent', '#6c757d', 'expense', TRUE),
+    (p_user_id, 'Home Maintenance', '#e83e8c', 'expense', TRUE),
+    (p_user_id, 'Charity & Donation', '#fd7e14', 'expense', TRUE),
     (p_user_id, 'Other Expenses', '#95a5a6', 'expense', TRUE),
     
     -- Default income categories
     (p_user_id, 'Salary', '#27ae60', 'income', TRUE),
     (p_user_id, 'Freelance', '#16a085', 'income', TRUE),
-    (p_user_id, 'Investment', '#2980b9', 'income', TRUE),
-    (p_user_id, 'Other Income', '#8e44ad', 'income', TRUE);
+    (p_user_id, 'Investment Returns', '#2980b9', 'income', TRUE),
+    (p_user_id, 'Dividend', '#8e44ad', 'income', TRUE),
+    (p_user_id, 'Interest Income', '#d35400', 'income', TRUE),
+    (p_user_id, 'Bonus', '#c0392b', 'income', TRUE),
+    (p_user_id, 'Gift Received', '#85c1e9', 'income', TRUE),
+    (p_user_id, 'Rental Income', '#58d68d', 'income', TRUE),
+    (p_user_id, 'Business Income', '#f4d03f', 'income', TRUE),
+    (p_user_id, 'Other Income', '#aed6f1', 'income', TRUE);
 END;
 $$ LANGUAGE plpgsql;
 

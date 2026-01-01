@@ -30,6 +30,7 @@
                 <button class="nav-tab" data-tab="history">History</button>
                 <button class="nav-tab" data-tab="analytics">Analytics</button>
                 <button class="nav-tab" data-tab="categories">Categories</button>
+                <button class="nav-tab" data-tab="settings">Settings</button>
             </div>
             <div class="nav-user">
                 <div class="user-menu">
@@ -271,6 +272,112 @@
 
                 <div id="categories-list" class="categories-grid">
                     <!-- Categories will be populated here -->
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settings" class="content-section">
+                <div class="section-header">
+                    <h2>Settings</h2>
+                </div>
+
+                <div class="settings-container">
+                    <!-- Email Notifications Settings -->
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <h3>📧 Email Notifications</h3>
+                            <p>Manage your email notification preferences</p>
+                        </div>
+                        <div class="settings-card-body">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <h4>Monthly Reports</h4>
+                                    <p>Receive automated monthly financial reports via email</p>
+                                </div>
+                                <div class="setting-control">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="email-notifications-toggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <h4>Email Address</h4>
+                                    <p id="user-email-display">Loading...</p>
+                                </div>
+                                <div class="setting-control">
+                                    <button class="btn btn-secondary" id="send-test-report">Send Test Report</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Report Settings -->
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <h3>📊 Report Settings</h3>
+                            <p>Configure your financial reports</p>
+                        </div>
+                        <div class="settings-card-body">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <h4>Generate Monthly Report</h4>
+                                    <p>Generate and send a report for a specific month</p>
+                                </div>
+                                <div class="setting-control">
+                                    <div class="report-controls">
+                                        <select id="report-month" class="form-control">
+                                            <option value="1">January</option>
+                                            <option value="2">February</option>
+                                            <option value="3">March</option>
+                                            <option value="4">April</option>
+                                            <option value="5">May</option>
+                                            <option value="6">June</option>
+                                            <option value="7">July</option>
+                                            <option value="8">August</option>
+                                            <option value="9">September</option>
+                                            <option value="10">October</option>
+                                            <option value="11">November</option>
+                                            <option value="12">December</option>
+                                        </select>
+                                        <select id="report-year" class="form-control">
+                                            <!-- Years will be populated by JavaScript -->
+                                        </select>
+                                        <button class="btn btn-primary" id="generate-report">Generate Report</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Account Settings -->
+                    <div class="settings-card">
+                        <div class="settings-card-header">
+                            <h3>👤 Account Settings</h3>
+                            <p>Manage your account information</p>
+                        </div>
+                        <div class="settings-card-body">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <h4>Profile Information</h4>
+                                    <p>Your account is linked with Google OAuth</p>
+                                </div>
+                                <div class="setting-control">
+                                    <div class="profile-info">
+                                        <div class="profile-field">
+                                            <label>Name:</label>
+                                            <span id="profile-name">Loading...</span>
+                                        </div>
+                                        <div class="profile-field">
+                                            <label>Email:</label>
+                                            <span id="profile-email">Loading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>

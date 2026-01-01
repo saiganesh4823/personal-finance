@@ -22,6 +22,12 @@
       "use": "@vercel/static"
     }
   ],
+  "crons": [
+    {
+      "path": "/api/reports/monthly",
+      "schedule": "0 9 1 * *"
+    }
+  ],
   "routes": [
     {
       "src": "/auth/google/callback",

@@ -254,88 +254,169 @@ class CategoryManager {
             // Expense categories
             {
                 name: 'Food & Dining',
-                color: '#FF6384',
-                type: 'expense'
-            },
-            {
-                name: 'Transportation',
-                color: '#36A2EB',
-                type: 'expense'
-            },
-            {
-                name: 'Shopping',
-                color: '#FFCE56',
-                type: 'expense'
-            },
-            {
-                name: 'Entertainment',
-                color: '#4BC0C0',
+                color: '#e74c3c',
                 type: 'expense'
             },
             {
                 name: 'Bills & Utilities',
-                color: '#9966FF',
+                color: '#34495e',
+                type: 'expense'
+            },
+            {
+                name: 'Shopping',
+                color: '#9b59b6',
+                type: 'expense'
+            },
+            {
+                name: 'Transportation',
+                color: '#f39c12',
+                type: 'expense'
+            },
+            {
+                name: 'Entertainment',
+                color: '#e67e22',
                 type: 'expense'
             },
             {
                 name: 'Healthcare',
-                color: '#FF9F40',
+                color: '#1abc9c',
                 type: 'expense'
             },
             {
                 name: 'Education',
-                color: '#E74C3C',
+                color: '#3498db',
+                type: 'expense'
+            },
+            {
+                name: 'Travel',
+                color: '#2ecc71',
+                type: 'expense'
+            },
+            {
+                name: 'Personal Care',
+                color: '#f1c40f',
                 type: 'expense'
             },
             {
                 name: 'Family',
-                color: '#FF69B4',
+                color: '#ff69b4',
                 type: 'expense'
             },
             {
                 name: 'Gym & Fitness',
-                color: '#32CD32',
+                color: '#32cd32',
+                type: 'expense'
+            },
+            // Financial categories
+            {
+                name: 'Loan EMI',
+                color: '#dc3545',
                 type: 'expense'
             },
             {
-                name: 'SIP & Investments',
-                color: '#4169E1',
+                name: 'Credit Card Payment',
+                color: '#fd7e14',
+                type: 'expense'
+            },
+            {
+                name: 'SIP & Mutual Funds',
+                color: '#4169e1',
                 type: 'expense'
             },
             {
                 name: 'Savings',
-                color: '#FFD700',
+                color: '#ffd700',
+                type: 'expense'
+            },
+            {
+                name: 'Insurance Premium',
+                color: '#6f42c1',
+                type: 'expense'
+            },
+            {
+                name: 'Tax Payment',
+                color: '#20c997',
+                type: 'expense'
+            },
+            {
+                name: 'Fixed Deposit',
+                color: '#17a2b8',
+                type: 'expense'
+            },
+            {
+                name: 'Stock Investment',
+                color: '#28a745',
+                type: 'expense'
+            },
+            {
+                name: 'Rent',
+                color: '#6c757d',
+                type: 'expense'
+            },
+            {
+                name: 'Home Maintenance',
+                color: '#e83e8c',
+                type: 'expense'
+            },
+            {
+                name: 'Charity & Donation',
+                color: '#fd7e14',
                 type: 'expense'
             },
             {
                 name: 'Other Expenses',
-                color: '#C9CBCF',
+                color: '#95a5a6',
                 type: 'expense'
             },
             // Income categories
             {
                 name: 'Salary',
-                color: '#27AE60',
+                color: '#27ae60',
                 type: 'income'
             },
             {
                 name: 'Freelance',
-                color: '#2ECC71',
+                color: '#16a085',
                 type: 'income'
             },
             {
-                name: 'Investment',
-                color: '#58D68D',
+                name: 'Investment Returns',
+                color: '#2980b9',
                 type: 'income'
             },
             {
-                name: 'Gift',
-                color: '#85C1E9',
+                name: 'Dividend',
+                color: '#8e44ad',
+                type: 'income'
+            },
+            {
+                name: 'Interest Income',
+                color: '#d35400',
+                type: 'income'
+            },
+            {
+                name: 'Bonus',
+                color: '#c0392b',
+                type: 'income'
+            },
+            {
+                name: 'Gift Received',
+                color: '#85c1e9',
+                type: 'income'
+            },
+            {
+                name: 'Rental Income',
+                color: '#58d68d',
+                type: 'income'
+            },
+            {
+                name: 'Business Income',
+                color: '#f4d03f',
                 type: 'income'
             },
             {
                 name: 'Other Income',
-                color: '#AED6F1',
+                color: '#aed6f1',
                 type: 'income'
             }
         ];
