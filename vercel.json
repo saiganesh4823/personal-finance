@@ -28,6 +28,14 @@
       "dest": "/backend/server.js"
     },
     {
+      "src": "/auth/(.*)",
+      "dest": "/backend/server.js"
+    },
+    {
+      "src": "/user/(.*)",
+      "dest": "/backend/server.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }
