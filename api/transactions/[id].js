@@ -8,6 +8,14 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
+    // Add debugging
+    console.log('Individual transaction API called:', {
+        method: req.method,
+        query: req.query,
+        url: req.url,
+        headers: req.headers.authorization ? 'Bearer token present' : 'No auth header'
+    });
+    
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, DELETE, OPTIONS');

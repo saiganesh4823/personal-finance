@@ -36,6 +36,10 @@
       "dest": "/api/auth/login.js"
     },
     {
+      "src": "/api/transactions/([^/]+)",
+      "dest": "/api/transactions/[id].js?id=$1"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/$1.js"
     },

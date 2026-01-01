@@ -169,18 +169,23 @@ class DatabaseService {
      */
     async getRecord(store, id) {
         try {
+            console.log(`Making request to get ${store} record with ID:`, id);
             const response = await this.authenticatedRequest(`/${store}/${id}`);
             
             if (response.status === 404) {
+                console.log(`Record not found: ${store}/${id}`);
                 return null;
             }
             
             if (!response.ok) {
                 const error = await response.json();
+                console.error(`API error for ${store}/${id}:`, error);
                 throw new Error(error.error || `Failed to fetch ${store} record`);
             }
 
-            return await response.json();
+            const result = await response.json();
+            console.log(`Successfully retrieved ${store} record:`, result);
+            return result;
         } catch (error) {
             console.error(`Failed to get record from ${store}:`, error);
             throw error;
@@ -328,6 +333,19 @@ class DatabaseService {
             };
         } catch (error) {
             console.error('Failed to get database stats:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get categories
+     * @returns {Promise<Array>} Array of categories
+     */
+    async getCategories() {
+        try {
+            return await this.getRecords('categories');
+        } catch (error) {
+            console.error('Failed to get categories:', error);
             throw error;
         }
     }
