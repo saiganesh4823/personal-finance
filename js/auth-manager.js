@@ -225,7 +225,7 @@ class AuthManager {
                 throw new Error('No authentication token');
             }
 
-            const response = await fetch(`${this.apiUrl}/auth/me`, {
+            const response = await fetch(`${this.apiUrl}/api/auth/me`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }

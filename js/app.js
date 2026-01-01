@@ -1577,7 +1577,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         
-        // Initialize authentication first
+        // Initialize authentication first and wait for it to complete
         await window.AuthManager.initialize();
         
         // Check for OAuth token first (before auth check)

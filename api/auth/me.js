@@ -27,9 +27,11 @@ export default async function handler(req, res) {
         
         // Return user info from token
         res.json({
-            id: decoded.userId,
-            username: decoded.username,
-            email: decoded.email
+            user: {
+                id: decoded.userId,
+                username: decoded.username,
+                email: decoded.email
+            }
         });
         
     } catch (error) {
