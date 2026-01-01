@@ -24,6 +24,10 @@
   ],
   "routes": [
     {
+      "src": "/api/test",
+      "dest": "/api/test.js"
+    },
+    {
       "src": "/api/health",
       "dest": "/api/health.js"
     },
