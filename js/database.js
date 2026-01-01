@@ -5,7 +5,8 @@
 
 class DatabaseService {
     constructor() {
-        this.apiUrl = 'http://localhost:3001/api';
+        // Use current domain for API URL
+        this.apiUrl = `${window.location.origin}/api`;
         this.dbName = 'MySQL Backend';
         this.version = 1;
     }

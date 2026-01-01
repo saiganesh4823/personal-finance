@@ -9,7 +9,8 @@ class AuthManager {
         this.refreshToken = null;
         this.user = null;
         this.refreshTimer = null;
-        this.apiUrl = 'http://localhost:3001';
+        // Use current domain for API URL
+        this.apiUrl = window.location.origin;
         
         // Initialize from localStorage
         this.loadFromStorage();
