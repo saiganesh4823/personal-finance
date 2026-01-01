@@ -49,9 +49,9 @@ class FinanceTrackerApp {
         if (token && loginSuccess === 'success') {
             log('Processing OAuth token...');
             
-            // Store the JWT token
-            localStorage.setItem('authToken', token);
-            log('Token stored in localStorage');
+            // Store the JWT token with the key AuthManager expects
+            localStorage.setItem('accessToken', token);
+            log('Token stored in localStorage as accessToken');
             
             // Decode and store user info
             try {
@@ -61,7 +61,8 @@ class FinanceTrackerApp {
                     username: payload.username,
                     email: payload.email
                 };
-                localStorage.setItem('userInfo', JSON.stringify(userInfo));
+                // Store user info with the key AuthManager expects
+                localStorage.setItem('user', JSON.stringify(userInfo));
                 log('User info stored: ' + userInfo.username);
                 
                 // Update UI with user info
