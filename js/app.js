@@ -119,6 +119,27 @@ class FinanceTrackerApp {
             // Check for OAuth success token first
             await this.handleOAuthCallback();
             
+            // TEMPORARY: Force authentication for testing
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('token')) {
+                console.log('FORCING AUTHENTICATION FOR OAUTH TEST');
+                // Bypass all other initialization and just show success
+                Utils.hideLoading();
+                Utils.showToast('OAuth Success! Token received and stored.', 'success');
+                
+                // Update URL to remove token
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+                
+                // Show user info in UI
+                const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+                if (userInfo.username) {
+                    this.updateUserDisplay(userInfo);
+                }
+                
+                return; // Skip normal initialization
+            }
+            
             // Initialize database first
             this.database = new DatabaseService();
             await this.database.initializeDB();
