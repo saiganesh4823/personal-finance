@@ -39,10 +39,22 @@ class AuthGuard {
      * Check authentication status on page load
      */
     checkAuthOnLoad() {
-        // Add a small delay to ensure AuthManager has initialized
-        setTimeout(() => {
-            this.performAuthCheckOnLoad();
-        }, 100);
+        // Check if this is an OAuth callback first
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasOAuthToken = urlParams.get('token') && urlParams.get('login') === 'success';
+        
+        if (hasOAuthToken) {
+            console.log('OAuth callback detected, waiting for token processing...');
+            // Wait longer for OAuth token to be processed
+            setTimeout(() => {
+                this.performAuthCheckOnLoad();
+            }, 2000); // Wait 2 seconds for OAuth processing
+        } else {
+            // Normal auth check with shorter delay
+            setTimeout(() => {
+                this.performAuthCheckOnLoad();
+            }, 100);
+        }
     }
     
     /**
