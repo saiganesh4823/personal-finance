@@ -65,6 +65,12 @@ class FinanceTrackerApp {
                 localStorage.setItem('user', JSON.stringify(userInfo));
                 log('User info stored: ' + userInfo.username);
                 
+                // IMPORTANT: Force AuthManager to reload from storage immediately
+                if (window.AuthManager) {
+                    window.AuthManager.loadFromStorage();
+                    log('AuthManager reloaded from storage');
+                }
+                
                 // Update UI with user info
                 this.updateUserDisplay(userInfo);
                 
