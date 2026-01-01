@@ -39,6 +39,10 @@ class AuthGuard {
      * Check authentication status on page load
      */
     checkAuthOnLoad() {
+        // TEMPORARILY DISABLED FOR OAUTH DEBUGGING
+        console.log('AuthGuard temporarily disabled for OAuth debugging');
+        return;
+        
         // Check if this is an OAuth callback first
         const urlParams = new URLSearchParams(window.location.search);
         const hasOAuthToken = urlParams.get('token') && urlParams.get('login') === 'success';
