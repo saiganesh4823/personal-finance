@@ -83,7 +83,11 @@ export default async function handler(req, res) {
         });
         
         const googleUser = await userResponse.json();
-        console.log('Google user info received:', { id: !!googleUser.id, email: !!googleUser.email });
+        console.log('Google user info received:', { 
+            id: !!googleUser.id, 
+            email: !!googleUser.email,
+            fullResponse: googleUser 
+        });
         
         if (!googleUser.id) {
             console.error('Failed to get user info:', googleUser);
