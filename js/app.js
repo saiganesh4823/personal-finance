@@ -1575,7 +1575,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Wait a bit to ensure all scripts are loaded
         if (!window.AuthManager) {
             console.error('AuthManager not available');
-            window.location.href = 'login.html';
+            // TEMPORARILY DISABLED FOR OAUTH TESTING
+            console.log('Skipping AuthManager redirect for OAuth testing');
             return;
         }
         
@@ -1584,8 +1585,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Check if user is authenticated
         if (!window.AuthManager.isAuthenticated()) {
-            // Redirect to login page
-            window.location.href = 'login.html';
+            // TEMPORARILY DISABLED FOR OAUTH TESTING
+            console.log('User not authenticated, but skipping redirect for OAuth testing');
             return;
         }
         
@@ -1610,12 +1611,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     } catch (error) {
         console.error('App initialization error:', error);
-        // If there's an authentication error, redirect to login
-        if (error.message && (error.message.includes('Authentication') || error.message.includes('Token'))) {
-            window.location.href = 'login.html';
-        } else {
-            Utils.showToast('Failed to initialize application', 'error');
-        }
+        // TEMPORARILY DISABLED FOR OAUTH TESTING
+        console.log('Skipping error redirect for OAuth testing');
+        Utils.showToast('App initialization error (redirects disabled for OAuth testing)', 'error');
     }
 });
 
