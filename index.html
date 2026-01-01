@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Finance Tracker</title>
+    <meta name="description" content="Local-only personal finance tracker - Your data never leaves your device">
+    
+    <!-- CSS Files -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+    <!-- Privacy Statement -->
+    <div class="privacy-banner">
+        <p>🔒 Your data never leaves your device - Stored locally in browser's IndexedDB - Complete privacy guaranteed</p>
+    </div>
+
+    <!-- Main Application Container -->
+    <div class="app-container">
+        <!-- Navigation -->
+        <nav class="main-nav">
+            <div class="nav-brand">
+                <h1>💰 Finance Tracker</h1>
+            </div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-tab="dashboard">Dashboard</button>
+                <button class="nav-tab" data-tab="transactions">Add Transaction</button>
+                <button class="nav-tab" data-tab="history">History</button>
+                <button class="nav-tab" data-tab="analytics">Analytics</button>
+                <button class="nav-tab" data-tab="categories">Categories</button>
+            </div>
+            <div class="nav-user">
+                <div class="user-menu">
+                    <button class="user-menu-toggle" id="user-menu-toggle">
+                        <span class="user-name" id="user-name">User</span>
+                        <span class="user-avatar" id="user-avatar">👤</span>
+                    </button>
+                    <div class="user-dropdown" id="user-dropdown">
+                        <div class="user-info">
+                            <div class="user-details">
+                                <div class="user-display-name" id="user-display-name">User Name</div>
+                                <div class="user-email" id="user-email">user@example.com</div>
+                            </div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" class="dropdown-item" id="profile-link">
+                            <span class="dropdown-icon">⚙️</span>
+                            Profile Settings
+                        </a>
+                        <a href="#" class="dropdown-item" id="export-data-link">
+                            <span class="dropdown-icon">📤</span>
+                            Export Data
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" class="dropdown-item logout-item" id="logout-link">
+                            <span class="dropdown-icon">🚪</span>
+                            Sign Out
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="nav-mobile">
+                <button class="hamburger-menu">☰</button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="content-section active">
+                <div class="dashboard-header">
+                    <h2>Financial Overview</h2>
+                    <div class="quick-actions">
+                        <button class="btn btn-primary" id="quick-add-expense">+ Add Expense</button>
+                        <button class="btn btn-secondary" id="quick-add-income">+ Add Income</button>
+                    </div>
+                </div>
+                
+                <div class="summary-cards">
+                    <div class="summary-card income">
+                        <div class="card-icon">📈</div>
+                        <div class="card-content">
+                            <h3>Total Income</h3>
+                            <p class="amount" id="total-income">₹0.00</p>
+                            <span class="period">This Month</span>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-card expense">
+                        <div class="card-icon">📉</div>
+                        <div class="card-content">
+                            <h3>Total Expenses</h3>
+                            <p class="amount" id="total-expenses">₹0.00</p>
+                            <span class="period">This Month</span>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-card balance">
+                        <div class="card-icon">💰</div>
+                        <div class="card-content">
+                            <h3>Net Balance</h3>
+                            <p class="amount" id="net-balance">₹0.00</p>
+                            <span class="period">This Month</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-transactions">
+                    <h3>Recent Transactions</h3>
+                    <div id="recent-transactions-list" class="transaction-list">
+                        <!-- Recent transactions will be populated here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Transaction Input Section -->
+            <section id="transactions" class="content-section">
+                <div class="section-header">
+                    <h2>Add Transaction</h2>
+                </div>
+                
+                <form id="transaction-form" class="transaction-form">
+                    <div class="form-group">
+                        <label for="transaction-type">Type</label>
+                        <select id="transaction-type" name="type" required>
+                            <option value="">Select Type</option>
+                            <option value="income">Income</option>
+                            <option value="expense">Expense</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transaction-amount">Amount</label>
+                        <input type="number" id="transaction-amount" name="amount" step="0.01" min="0" placeholder="0.00" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transaction-category">Category</label>
+                        <select id="transaction-category" name="category" required>
+                            <option value="">Select Category</option>
+                            <!-- Categories will be populated dynamically -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transaction-date">Date</label>
+                        <input type="date" id="transaction-date" name="date" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transaction-note">Note (Optional)</label>
+                        <textarea id="transaction-note" name="note" placeholder="Add a note about this transaction..."></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Add Transaction</button>
+                        <button type="reset" class="btn btn-secondary">Clear Form</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- History Section -->
+            <section id="history" class="content-section">
+                <div class="section-header">
+                    <h2>Transaction History</h2>
+                    <div class="history-controls">
+                        <button class="btn btn-secondary" id="export-data">Export Data</button>
+                        <button class="btn btn-secondary" id="import-data">Import Data</button>
+                    </div>
+                </div>
+
+                <div class="filters">
+                    <div class="filter-group">
+                        <label for="filter-type">Type</label>
+                        <select id="filter-type">
+                            <option value="">All Types</option>
+                            <option value="income">Income</option>
+                            <option value="expense">Expense</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filter-category">Category</label>
+                        <select id="filter-category">
+                            <option value="">All Categories</option>
+                            <!-- Categories will be populated dynamically -->
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filter-date-from">From Date</label>
+                        <input type="date" id="filter-date-from">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filter-date-to">To Date</label>
+                        <input type="date" id="filter-date-to">
+                    </div>
+
+                    <div class="filter-actions">
+                        <button class="btn btn-primary" id="apply-filters">Apply Filters</button>
+                        <button class="btn btn-secondary" id="clear-filters">Clear</button>
+                    </div>
+                </div>
+
+                <div id="transaction-history" class="transaction-list">
+                    <!-- Transaction history will be populated here -->
+                </div>
+            </section>
+
+            <!-- Analytics Section -->
+            <section id="analytics" class="content-section">
+                <div class="section-header">
+                    <h2>Financial Analytics</h2>
+                    <div class="period-selector">
+                        <button class="period-btn active" data-period="month">This Month</button>
+                        <button class="period-btn" data-period="quarter">This Quarter</button>
+                        <button class="period-btn" data-period="year">This Year</button>
+                    </div>
+                </div>
+
+                <div class="charts-container">
+                    <div class="chart-section">
+                        <h3>Category Distribution</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="category-pie-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-section">
+                        <h3>Income vs Expenses</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="income-expense-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-section">
+                        <h3>Balance Over Time</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="balance-line-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Categories Section -->
+            <section id="categories" class="content-section">
+                <div class="section-header">
+                    <h2>Manage Categories</h2>
+                    <button class="btn btn-primary" id="add-category-btn">+ Add Category</button>
+                </div>
+
+                <div class="data-info-card" style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #28a745;">
+                    <h4 style="margin: 0 0 0.5rem 0; color: #28a745;">📍 Data Storage Information</h4>
+                    <p style="margin: 0; font-size: 14px; color: #6c757d;">
+                        Your financial data is stored locally in your browser's <strong>IndexedDB</strong> database named "PersonalFinanceDB". 
+                        Data includes transactions, categories, and settings. Use Export/Import for backups.
+                        <br><strong>Currency:</strong> Indian Rupees (₹)
+                    </p>
+                </div>
+
+                <div id="categories-list" class="categories-grid">
+                    <!-- Categories will be populated here -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for Category Management -->
+    <div id="category-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="category-modal-title">Add Category</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="category-form">
+                <div class="form-group">
+                    <label for="category-name">Category Name</label>
+                    <input type="text" id="category-name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="category-color">Color</label>
+                    <input type="color" id="category-color" name="color" value="#3498db">
+                </div>
+                <div class="form-group">
+                    <label for="category-type">Type</label>
+                    <select id="category-type" name="type" required>
+                        <option value="expense">Expense</option>
+                        <option value="income">Income</option>
+                        <option value="both">Both</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">Save Category</button>
+                    <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <!-- Hidden file input for import -->
+    <input type="file" id="import-file-input" accept=".json" style="display: none;">
+
+    <!-- External Dependencies -->
+    <script src="lib/dexie.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Authentication Scripts -->
+    <script src="js/auth-manager.js"></script>
+    <script src="js/auth-guard.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/transaction-manager.js"></script>
+    <script src="js/category-manager.js"></script>
+    <script src="js/analytics.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
