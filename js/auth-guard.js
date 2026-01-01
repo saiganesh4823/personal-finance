@@ -39,10 +39,6 @@ class AuthGuard {
      * Check authentication status on page load
      */
     checkAuthOnLoad() {
-        // TEMPORARILY DISABLED FOR OAUTH DEBUGGING
-        console.log('AuthGuard temporarily disabled for OAuth debugging');
-        return;
-        
         // Check if this is an OAuth callback first
         const urlParams = new URLSearchParams(window.location.search);
         const hasOAuthToken = urlParams.get('token') && urlParams.get('login') === 'success';
@@ -52,12 +48,12 @@ class AuthGuard {
             // Wait longer for OAuth token to be processed
             setTimeout(() => {
                 this.performAuthCheckOnLoad();
-            }, 2000); // Wait 2 seconds for OAuth processing
+            }, 3000); // Wait 3 seconds for OAuth processing
         } else {
             // Normal auth check with shorter delay
             setTimeout(() => {
                 this.performAuthCheckOnLoad();
-            }, 100);
+            }, 500); // Increased delay to let app initialize
         }
     }
     
