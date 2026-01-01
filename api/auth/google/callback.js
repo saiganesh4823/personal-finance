@@ -92,8 +92,7 @@ export default async function handler(req, res) {
             
             user = insertResult.rows[0];
             
-            // Create default categories for new user
-            await createDefaultCategories(userId);
+            // Default categories will be created automatically by database trigger
             
         } else {
             user = userResult.rows[0];
@@ -116,9 +115,7 @@ export default async function handler(req, res) {
             },
             process.env.JWT_SECRET,
             { 
-                expiresIn: process.env.JWT_EXPIRES_IN || '24h',
-                issuer: process.env.JWT_ISSUER || 'finance-tracker',
-                audience: process.env.JWT_AUDIENCE || 'finance-tracker-users'
+                expiresIn: process.env.JWT_EXPIRES_IN || '24h'
             }
         );
         
@@ -129,41 +126,5 @@ export default async function handler(req, res) {
     } catch (error) {
         console.error('Google OAuth callback error:', error);
         res.redirect(`${process.env.FRONTEND_URL}/login.html?error=callback_failed`);
-    }
-}
-
-// Helper function to create default categories
-async function createDefaultCategories(userId) {
-    try {
-        const defaultCategories = [
-            // Expense categories
-            { name: 'Food & Dining', color: '#e74c3c', type: 'expense' },
-            { name: 'Bills & Utilities', color: '#34495e', type: 'expense' },
-            { name: 'Shopping', color: '#9b59b6', type: 'expense' },
-            { name: 'Transportation', color: '#f39c12', type: 'expense' },
-            { name: 'Entertainment', color: '#e67e22', type: 'expense' },
-            { name: 'Healthcare', color: '#1abc9c', type: 'expense' },
-            { name: 'Education', color: '#3498db', type: 'expense' },
-            { name: 'Travel', color: '#2ecc71', type: 'expense' },
-            { name: 'Personal Care', color: '#f1c40f', type: 'expense' },
-            { name: 'Other Expenses', color: '#95a5a6', type: 'expense' },
-            
-            // Income categories
-            { name: 'Salary', color: '#27ae60', type: 'income' },
-            { name: 'Freelance', color: '#16a085', type: 'income' },
-            { name: 'Investment', color: '#2980b9', type: 'income' },
-            { name: 'Other Income', color: '#8e44ad', type: 'income' }
-        ];
-
-        for (const category of defaultCategories) {
-            const categoryId = uuidv4();
-            await pool.query(
-                'INSERT INTO categories (id, user_id, name, color, type, is_default) VALUES ($1, $2, $3, $4, $5, $6)',
-                [categoryId, userId, category.name, category.color, category.type, true]
-            );
-        }
-    } catch (error) {
-        console.error('Failed to create default categories:', error);
-        // Don't throw error as user creation should still succeed
     }
 }

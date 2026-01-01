@@ -1,9 +1,10 @@
--- Personal Finance Tracker - Supabase PostgreSQL Schema
+-- Complete Database Setup for Personal Finance Tracker with Google OAuth
+-- Run this ENTIRE script in your Supabase SQL editor
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Users table (main authentication)
+-- Users table (main authentication) with Google OAuth support
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(50) UNIQUE NOT NULL,
