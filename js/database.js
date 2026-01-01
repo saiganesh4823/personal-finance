@@ -363,8 +363,8 @@ class DatabaseService {
             if (filters.type) params.append('type', filters.type);
 
             const [stats, categories] = await Promise.all([
-                this.authenticatedRequest(`/analytics/stats?${params.toString()}`).then(r => r.json()),
-                this.authenticatedRequest(`/analytics/categories?${params.toString()}`).then(r => r.json())
+                this.authenticatedRequest(`/analytics?${params.toString()}`).then(r => r.json()),
+                this.authenticatedRequest(`/analytics?type=categories&${params.toString()}`).then(r => r.json())
             ]);
 
             return { stats, categories };

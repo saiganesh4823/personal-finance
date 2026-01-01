@@ -105,7 +105,7 @@ class AuthManager {
      */
     async login(identifier, password, rememberMe = false) {
         try {
-            const response = await fetch(`${this.apiUrl}/auth/login`, {
+            const response = await fetch(`${this.apiUrl}/auth`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -225,7 +225,7 @@ class AuthManager {
                 throw new Error('No authentication token');
             }
 
-            const response = await fetch(`${this.apiUrl}/api/auth/me`, {
+            const response = await fetch(`${this.apiUrl}/api/auth`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`
                 }
