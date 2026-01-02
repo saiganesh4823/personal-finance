@@ -166,6 +166,9 @@ class FinanceTrackerApp {
         // Recurring transactions
         this.setupRecurringListeners();
         
+        // Investment portfolio
+        this.setupInvestmentListeners();
+        
         // Mobile navigation
         this.setupMobileNavigation();
     }
@@ -550,6 +553,9 @@ class FinanceTrackerApp {
                     break;
                 case 'recurring':
                     await this.loadRecurringTransactions();
+                    break;
+                case 'investments':
+                    await this.loadInvestments();
                     break;
             }
         } catch (error) {
@@ -2217,6 +2223,263 @@ class FinanceTrackerApp {
                 Utils.showToast('Failed to delete recurring transaction: ' + error.message, 'error');
             }
         });
+    }
+
+    /**
+     * Set up investment portfolio event listeners
+     */
+    setupInvestmentListeners() {
+        const addInvestmentBtn = document.getElementById('add-investment-btn');
+        if (addInvestmentBtn) {
+            addInvestmentBtn.addEventListener('click', () => {
+                this.showInvestmentModal();
+            });
+        }
+
+        const investmentModal = document.getElementById('investment-modal');
+        const investmentCloseBtn = investmentModal?.querySelector('.modal-close');
+        const investmentForm = document.getElementById('investment-form');
+
+        if (investmentCloseBtn) {
+            investmentCloseBtn.addEventListener('click', () => {
+                this.hideInvestmentModal();
+            });
+        }
+
+        if (investmentModal) {
+            investmentModal.addEventListener('click', (e) => {
+                if (e.target === investmentModal) {
+                    this.hideInvestmentModal();
+                }
+            });
+        }
+
+        if (investmentForm) {
+            investmentForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveInvestment();
+            });
+        }
+
+        const investmentTypeFilter = document.getElementById('investment-type-filter');
+        if (investmentTypeFilter) {
+            investmentTypeFilter.addEventListener('change', () => {
+                this.loadInvestments();
+            });
+        }
+    }
+
+    /**
+     * Show investment modal
+     */
+    showInvestmentModal() {
+        const modal = document.getElementById('investment-modal');
+        const form = document.getElementById('investment-form');
+        
+        if (form) {
+            form.reset();
+            document.getElementById('investment-date').value = new Date().toISOString().split('T')[0];
+        }
+        
+        if (modal) {
+            modal.classList.add('show');
+        }
+    }
+
+    /**
+     * Hide investment modal
+     */
+    hideInvestmentModal() {
+        const modal = document.getElementById('investment-modal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+    }
+
+    /**
+     * Save investment
+     */
+    async saveInvestment() {
+        try {
+            Utils.showLoading();
+            
+            const form = document.getElementById('investment-form');
+            const formData = new FormData(form);
+            
+            const investmentData = {
+                investment_type: formData.get('investment_type'),
+                investment_name: formData.get('investment_name'),
+                category: formData.get('category') || null,
+                transaction_type: 'buy',
+                amount: parseFloat(formData.get('amount')),
+                units: parseFloat(formData.get('units')) || 0,
+                price_per_unit: parseFloat(formData.get('price_per_unit')) || 0,
+                transaction_date: formData.get('transaction_date'),
+                notes: formData.get('notes') || null
+            };
+
+            const response = await this.database.authenticatedRequest('/investments?action=add-transaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(investmentData)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to add investment');
+            }
+
+            this.hideInvestmentModal();
+            await this.loadInvestments();
+            Utils.hideLoading();
+            Utils.showToast('Investment added successfully!', 'success');
+
+        } catch (error) {
+            console.error('Failed to save investment:', error);
+            Utils.hideLoading();
+            Utils.showToast('Failed to add investment: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Load investments
+     */
+    async loadInvestments() {
+        try {
+            const typeFilter = document.getElementById('investment-type-filter')?.value || 'all';
+            const url = typeFilter === 'all' ? '/investments' : `/investments?type=${typeFilter}`;
+            
+            const response = await this.database.authenticatedRequest(url);
+            if (!response.ok) {
+                throw new Error('Failed to load investments');
+            }
+
+            const investments = await response.json();
+            this.displayInvestments(investments);
+            this.loadInvestmentSummary();
+
+        } catch (error) {
+            console.error('Failed to load investments:', error);
+        }
+    }
+
+    /**
+     * Load investment summary
+     */
+    async loadInvestmentSummary() {
+        try {
+            const response = await this.database.authenticatedRequest('/investments?type=summary');
+            if (!response.ok) return;
+
+            const summary = await response.json();
+            const summaryContainer = document.getElementById('investment-summary');
+            
+            if (summaryContainer && summary.length > 0) {
+                const totalInvested = summary.reduce((sum, s) => sum + parseFloat(s.total_invested || 0), 0);
+                const totalValue = summary.reduce((sum, s) => sum + parseFloat(s.current_value || 0), 0);
+                const totalGain = totalValue - totalInvested;
+                const returnPercent = totalInvested > 0 ? ((totalGain / totalInvested) * 100).toFixed(2) : 0;
+
+                summaryContainer.innerHTML = `
+                    <div class="summary-card">
+                        <h4>Total Invested</h4>
+                        <p class="amount">₹${totalInvested.toLocaleString('en-IN')}</p>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Current Value</h4>
+                        <p class="amount">₹${totalValue.toLocaleString('en-IN')}</p>
+                    </div>
+                    <div class="summary-card ${totalGain >= 0 ? 'positive' : 'negative'}">
+                        <h4>Total Gain/Loss</h4>
+                        <p class="amount">${totalGain >= 0 ? '+' : ''}₹${totalGain.toLocaleString('en-IN')} (${returnPercent}%)</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Failed to load investment summary:', error);
+        }
+    }
+
+    /**
+     * Display investments
+     */
+    displayInvestments(investments) {
+        const container = document.getElementById('investments-list');
+        if (!container) return;
+
+        if (investments.length === 0) {
+            container.innerHTML = '<p class="no-data">No investments found. Add your first investment!</p>';
+            return;
+        }
+
+        container.innerHTML = investments.map(inv => {
+            const gainLoss = (inv.current_value || 0) - (inv.total_invested || 0);
+            const returnPercent = inv.total_invested > 0 ? ((gainLoss / inv.total_invested) * 100).toFixed(2) : 0;
+            const isPositive = gainLoss >= 0;
+
+            return `
+                <div class="investment-card">
+                    <div class="investment-header">
+                        <h4>${inv.investment_name}</h4>
+                        <span class="investment-type">${inv.investment_type}</span>
+                    </div>
+                    <div class="investment-details">
+                        <div class="detail-row">
+                            <span>Invested:</span>
+                            <span>₹${parseFloat(inv.total_invested || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Current Value:</span>
+                            <span>₹${parseFloat(inv.current_value || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Units:</span>
+                            <span>${parseFloat(inv.units_quantity || 0).toFixed(4)}</span>
+                        </div>
+                        <div class="detail-row ${isPositive ? 'positive' : 'negative'}">
+                            <span>Gain/Loss:</span>
+                            <span>${isPositive ? '+' : ''}₹${gainLoss.toLocaleString('en-IN')} (${returnPercent}%)</span>
+                        </div>
+                    </div>
+                    <div class="investment-actions">
+                        <button class="btn btn-sm btn-secondary" onclick="app.editInvestment('${inv.id}')">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="app.deleteInvestment('${inv.id}')">Delete</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Delete investment
+     */
+    async deleteInvestment(investmentId) {
+        Utils.showConfirmDialog('Are you sure you want to delete this investment?', async () => {
+            try {
+                Utils.showLoading();
+                const response = await this.database.authenticatedRequest(`/investments?id=${investmentId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to delete investment');
+                }
+
+                await this.loadInvestments();
+                Utils.hideLoading();
+                Utils.showToast('Investment deleted successfully!', 'success');
+            } catch (error) {
+                Utils.hideLoading();
+                Utils.showToast('Failed to delete investment: ' + error.message, 'error');
+            }
+        });
+    }
+
+    /**
+     * Edit investment (placeholder)
+     */
+    editInvestment(investmentId) {
+        Utils.showToast('Edit functionality coming soon!', 'info');
     }
 }
 
