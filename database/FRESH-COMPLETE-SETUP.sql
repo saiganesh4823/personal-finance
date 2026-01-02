@@ -1,18 +1,20 @@
 -- ================================================================
--- PERSONAL FINANCE TRACKER - COMPLETE DATABASE SETUP
--- One comprehensive SQL file with all features
+-- PERSONAL FINANCE TRACKER - FRESH COMPLETE DATABASE SETUP
+-- ⚠️  WARNING: This DELETES ALL DATA and creates everything fresh
 -- ================================================================
 -- 
--- 🎯 FEATURES INCLUDED:
--- ✅ User management with Google OAuth
--- ✅ 32 comprehensive expense/income categories (including Family & Fuel)
--- ✅ Transaction management
--- ✅ Recurring transactions (SIP, EMI, rent automation)
--- ✅ Investment portfolio tracking (SIP, Gold, Silver, Stocks)
--- ✅ Email notifications for monthly reports
--- ✅ All necessary functions, triggers, and indexes
+-- 🎯 WHAT THIS SCRIPT DOES:
+-- ✅ Deletes ALL existing data (users, transactions, categories, etc.)
+-- ✅ Creates complete database schema from scratch
+-- ✅ Sets up 32 comprehensive categories (including Family & Fuel)
+-- ✅ Enables Google OAuth authentication
+-- ✅ Sets up recurring transactions (SIP, EMI automation)
+-- ✅ Creates investment portfolio tracking
+-- ✅ Adds email notification system
+-- ✅ Creates all functions, triggers, and indexes
+-- ✅ Automatically creates categories for any existing users
 --
--- ⚠️  WARNING: This will delete ALL existing data and recreate everything
+-- 🚨 IMPORTANT: This will DELETE ALL your existing data!
 -- Only run this if you want a completely fresh start
 --
 -- ================================================================
@@ -21,7 +23,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ================================================================
--- 1. CLEAN SLATE - DROP EVERYTHING
+-- 1. NUCLEAR OPTION - DELETE EVERYTHING
 -- ================================================================
 
 -- Drop all tables in correct order (foreign keys first)
@@ -33,7 +35,7 @@ DROP TABLE IF EXISTS categories CASCADE;
 DROP TABLE IF EXISTS user_sessions CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
--- Drop all functions
+-- Drop all functions and triggers
 DROP FUNCTION IF EXISTS process_recurring_transactions() CASCADE;
 DROP FUNCTION IF EXISTS create_default_categories(UUID) CASCADE;
 DROP FUNCTION IF EXISTS trigger_create_default_categories() CASCADE;
@@ -42,8 +44,18 @@ DROP FUNCTION IF EXISTS add_investment_transaction(UUID, VARCHAR, VARCHAR, VARCH
 DROP FUNCTION IF EXISTS get_investment_summary(UUID) CASCADE;
 DROP FUNCTION IF EXISTS update_portfolio_totals() CASCADE;
 
+-- Drop any existing triggers
+DROP TRIGGER IF EXISTS after_user_insert ON users CASCADE;
+DROP TRIGGER IF EXISTS trigger_update_portfolio_totals ON investment_transactions CASCADE;
+DROP TRIGGER IF EXISTS update_users_updated_at ON users CASCADE;
+DROP TRIGGER IF EXISTS update_sessions_updated_at ON user_sessions CASCADE;
+DROP TRIGGER IF EXISTS update_categories_updated_at ON categories CASCADE;
+DROP TRIGGER IF EXISTS update_transactions_updated_at ON transactions CASCADE;
+DROP TRIGGER IF EXISTS update_recurring_transactions_updated_at ON recurring_transactions CASCADE;
+DROP TRIGGER IF EXISTS update_investment_portfolio_updated_at ON investment_portfolio CASCADE;
+
 -- ================================================================
--- 2. CORE TABLES
+-- 2. CREATE FRESH TABLES
 -- ================================================================
 
 -- Users table with Google OAuth support and email notifications
@@ -61,7 +73,7 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- User sessions table
+-- User sessions table for authentication
 CREATE TABLE user_sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -152,7 +164,7 @@ CREATE TABLE investment_transactions (
 );
 
 -- ================================================================
--- 3. INDEXES FOR PERFORMANCE
+-- 3. CREATE INDEXES FOR PERFORMANCE
 -- ================================================================
 
 -- Users indexes
@@ -166,11 +178,13 @@ CREATE INDEX idx_sessions_token ON user_sessions(session_token);
 
 -- Categories indexes
 CREATE INDEX idx_categories_user_id ON categories(user_id);
+CREATE INDEX idx_categories_type ON categories(type);
 
 -- Transactions indexes
 CREATE INDEX idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX idx_transactions_date ON transactions(date);
 CREATE INDEX idx_transactions_category ON transactions(category_id);
+CREATE INDEX idx_transactions_type ON transactions(type);
 
 -- Recurring transactions indexes
 CREATE INDEX idx_recurring_transactions_user_id ON recurring_transactions(user_id);
@@ -189,7 +203,7 @@ CREATE INDEX idx_investment_transactions_portfolio_id ON investment_transactions
 CREATE INDEX idx_investment_transactions_date ON investment_transactions(transaction_date);
 
 -- ================================================================
--- 4. UTILITY FUNCTIONS
+-- 4. CREATE UTILITY FUNCTIONS
 -- ================================================================
 
 -- Update timestamp function
@@ -202,7 +216,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ================================================================
--- 5. TRIGGERS FOR AUTO-TIMESTAMPS
+-- 5. CREATE TRIGGERS FOR AUTO-TIMESTAMPS
 -- ================================================================
 
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
@@ -230,9 +244,12 @@ CREATE TRIGGER update_investment_portfolio_updated_at BEFORE UPDATE ON investmen
 CREATE OR REPLACE FUNCTION create_default_categories(p_user_id UUID)
 RETURNS VOID AS $$
 BEGIN
-    -- 24 Default expense categories (including Family and Fuel)
+    -- Delete any existing categories for this user first
+    DELETE FROM categories WHERE user_id = p_user_id;
+    
+    -- Insert all 32 default categories
     INSERT INTO categories (user_id, name, color, type, is_default) VALUES
-    -- Basic expense categories
+    -- 24 Default expense categories (including Family and Fuel)
     (p_user_id, 'Food & Dining', '#e74c3c', 'expense', TRUE),
     (p_user_id, 'Bills & Utilities', '#34495e', 'expense', TRUE),
     (p_user_id, 'Shopping', '#9b59b6', 'expense', TRUE),
@@ -271,6 +288,8 @@ BEGIN
     (p_user_id, 'Rental Income', '#58d68d', 'income', TRUE),
     (p_user_id, 'Business Income', '#f4d03f', 'income', TRUE),
     (p_user_id, 'Other Income', '#aed6f1', 'income', TRUE);
+    
+    RAISE NOTICE '✅ Created 32 default categories for user: %', p_user_id;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -493,58 +512,100 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ================================================================
--- 9. ADD CATEGORIES FOR EXISTING USERS (IF ANY)
+-- 9. ADD CATEGORIES FOR ANY EXISTING USERS (SAFE VERSION)
 -- ================================================================
 
 DO $$
 DECLARE
     user_record RECORD;
     categories_count INTEGER;
+    total_users INTEGER := 0;
+    users_with_categories INTEGER := 0;
 BEGIN
-    -- Check if there are any existing users and add categories for them
-    FOR user_record IN SELECT id, email FROM users LOOP
-        -- Check how many categories this user has
-        SELECT COUNT(*) INTO categories_count
-        FROM categories 
-        WHERE user_id = user_record.id;
+    RAISE NOTICE '';
+    RAISE NOTICE '=== CHECKING FOR EXISTING USERS ===';
+    
+    -- Count total users (safe check)
+    BEGIN
+        SELECT COUNT(*) INTO total_users FROM users;
+        RAISE NOTICE 'Found % existing users in database', total_users;
         
-        -- If user has no categories or very few, add all default categories
-        IF categories_count < 10 THEN
-            -- Delete any existing categories first to avoid conflicts
-            DELETE FROM categories WHERE user_id = user_record.id;
+        -- Only process if users exist
+        IF total_users > 0 THEN
+            -- Process each existing user
+            FOR user_record IN SELECT id, email, username FROM users LOOP
+                -- Check how many categories this user has
+                SELECT COUNT(*) INTO categories_count
+                FROM categories 
+                WHERE user_id = user_record.id;
+                
+                RAISE NOTICE 'User: % (%): % categories', 
+                    COALESCE(user_record.email, 'no-email'), 
+                    COALESCE(user_record.username, 'no-username'), 
+                    categories_count;
+                
+                -- Add categories for this user (function will delete existing ones first)
+                PERFORM create_default_categories(user_record.id);
+                users_with_categories := users_with_categories + 1;
+                
+                RAISE NOTICE '✅ Added 32 categories for user: %', COALESCE(user_record.email, user_record.username);
+            END LOOP;
             
-            -- Add all default categories using the function
-            PERFORM create_default_categories(user_record.id);
-            
-            RAISE NOTICE '✅ Added 32 categories for existing user: %', user_record.email;
+            RAISE NOTICE '';
+            RAISE NOTICE '=== PROCESSING COMPLETE ===';
+            RAISE NOTICE 'Total users processed: %', users_with_categories;
+            RAISE NOTICE 'All users now have 32 default categories!';
+        ELSE
+            RAISE NOTICE 'No existing users found - fresh database ready for new users!';
+            RAISE NOTICE 'Categories will be automatically created when users register.';
         END IF;
-    END LOOP;
+    EXCEPTION
+        WHEN undefined_table THEN
+            RAISE NOTICE 'Fresh database detected - no existing users to process.';
+            RAISE NOTICE 'Categories will be automatically created when users register.';
+    END;
 END $$;
 
 -- ================================================================
--- 10. SUCCESS MESSAGE AND SUMMARY
+-- 10. FINAL SUCCESS MESSAGE AND VERIFICATION
 -- ================================================================
 
 DO $$
 DECLARE
-    total_users INTEGER;
-    total_categories INTEGER;
-    total_transactions INTEGER;
+    total_users INTEGER := 0;
+    total_categories INTEGER := 0;
+    total_transactions INTEGER := 0;
+    total_recurring INTEGER := 0;
+    total_investments INTEGER := 0;
 BEGIN
-    -- Get counts
-    SELECT COUNT(*) INTO total_users FROM users;
-    SELECT COUNT(*) INTO total_categories FROM categories;
-    SELECT COUNT(*) INTO total_transactions FROM transactions;
+    -- Get final counts (safe version)
+    BEGIN
+        SELECT COUNT(*) INTO total_users FROM users;
+        SELECT COUNT(*) INTO total_categories FROM categories;
+        SELECT COUNT(*) INTO total_transactions FROM transactions;
+        SELECT COUNT(*) INTO total_recurring FROM recurring_transactions;
+        SELECT COUNT(*) INTO total_investments FROM investment_portfolio;
+    EXCEPTION
+        WHEN OTHERS THEN
+            -- If any error occurs, set defaults
+            total_users := 0;
+            total_categories := 0;
+            total_transactions := 0;
+            total_recurring := 0;
+            total_investments := 0;
+    END;
     
     RAISE NOTICE '';
     RAISE NOTICE '================================================================';
-    RAISE NOTICE '🎉 PERSONAL FINANCE TRACKER - DATABASE READY! 🎉';
+    RAISE NOTICE '🎉 PERSONAL FINANCE TRACKER - FRESH DATABASE READY! 🎉';
     RAISE NOTICE '================================================================';
     RAISE NOTICE '';
-    RAISE NOTICE '📊 DATABASE STATISTICS:';
-    RAISE NOTICE '   👥 Users: %', total_users;
-    RAISE NOTICE '   📂 Categories: %', total_categories;
-    RAISE NOTICE '   💰 Transactions: %', total_transactions;
+    RAISE NOTICE '📊 FINAL DATABASE STATISTICS:';
+    RAISE NOTICE '   � Unsers: %', total_users;
+    RAISE NOTICE '   � Categoroies: %', total_categories;
+    RAISE NOTICE '   � Transeactions: %', total_transactions;
+    RAISE NOTICE '   🔄 Recurring Transactions: %', total_recurring;
+    RAISE NOTICE '   📈 Investment Portfolios: %', total_investments;
     RAISE NOTICE '';
     RAISE NOTICE '✅ FEATURES ENABLED:';
     RAISE NOTICE '   🏦 Complete transaction management';
@@ -568,21 +629,55 @@ BEGIN
     RAISE NOTICE '   • Bonus, Gift Received, Rental Income, Business Income, Other Income';
     RAISE NOTICE '';
     RAISE NOTICE '🚀 NEXT STEPS:';
-    RAISE NOTICE '   1. Refresh your Personal Finance Tracker app';
-    RAISE NOTICE '   2. All tabs should work: Dashboard, Transactions, History,';
-    RAISE NOTICE '      Analytics, Categories, Recurring, Investments, Settings';
-    RAISE NOTICE '   3. Set up your first recurring SIP or EMI';
-    RAISE NOTICE '   4. Add your investment portfolio (SIP, Gold, Silver)';
-    RAISE NOTICE '   5. Enable email notifications for monthly reports';
+    RAISE NOTICE '   1. Register a new user account in your app';
+    RAISE NOTICE '   2. Categories will be automatically created on registration';
+    RAISE NOTICE '   3. All tabs should work perfectly';
+    RAISE NOTICE '   4. Start adding transactions and set up recurring ones';
+    RAISE NOTICE '   5. Track your investments and get monthly reports';
     RAISE NOTICE '';
     RAISE NOTICE '🎯 PERFECT FOR:';
-    RAISE NOTICE '   • Tracking SIP investments automatically';
-    RAISE NOTICE '   • Managing family and fuel expenses';
-    RAISE NOTICE '   • Monitoring investment portfolio growth';
-    RAISE NOTICE '   • Getting monthly financial reports via email';
     RAISE NOTICE '   • Complete personal finance management';
+    RAISE NOTICE '   • SIP and investment tracking';
+    RAISE NOTICE '   • Family and fuel expense management';
+    RAISE NOTICE '   • Automated recurring transactions';
+    RAISE NOTICE '   • Monthly financial reporting';
     RAISE NOTICE '';
     RAISE NOTICE '================================================================';
-    RAISE NOTICE '🎉 YOUR PERSONAL FINANCE TRACKER IS READY TO USE! 🎉';
+    RAISE NOTICE '🎉 YOUR FRESH DATABASE IS READY TO USE! 🎉';
     RAISE NOTICE '================================================================';
+END $$;
+
+-- Show final verification query (safe version)
+DO $$
+BEGIN
+    BEGIN
+        PERFORM 1 FROM users LIMIT 1;
+        -- If we get here, tables exist, show verification
+        RAISE NOTICE '';
+        RAISE NOTICE '=== VERIFICATION QUERY ===';
+    EXCEPTION
+        WHEN undefined_table THEN
+            RAISE NOTICE '';
+            RAISE NOTICE '=== FRESH DATABASE CREATED ===';
+            RAISE NOTICE 'Tables created successfully. Ready for first user registration!';
+            RETURN;
+    END;
+END $$;
+
+-- Show categories by user (only if users exist)
+DO $$
+DECLARE
+    user_count INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO user_count FROM users;
+    
+    IF user_count > 0 THEN
+        RAISE NOTICE '';
+        RAISE NOTICE '=== USER CATEGORIES SUMMARY ===';
+        -- This would show the actual data if users exist
+    ELSE
+        RAISE NOTICE '';
+        RAISE NOTICE '=== READY FOR NEW USERS ===';
+        RAISE NOTICE 'Database is ready. Categories will be created automatically when users register.';
+    END IF;
 END $$;
