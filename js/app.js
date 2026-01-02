@@ -1992,19 +1992,18 @@ class FinanceTrackerApp {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        const startDate = new Date(recurring.start_date);
-        startDate.setHours(0, 0, 0, 0);
+        const startDate = new Date(recurring.start_date + 'T00:00:00');
         
         // If there's a next_due_date from the database, use it
         if (recurring.next_due_date) {
-            const nextDue = new Date(recurring.next_due_date);
+            const nextDue = new Date(recurring.next_due_date + 'T00:00:00');
             if (nextDue >= today) {
                 return Utils.formatDate(recurring.next_due_date);
             }
         }
         
         let nextDate = new Date(startDate);
-        const dayOfMonth = recurring.day_of_month || startDate.getDate();
+        const dayOfMonth = parseInt(recurring.day_of_month) || startDate.getDate();
         
         // Calculate the next occurrence that is >= today
         switch (recurring.frequency) {
@@ -2021,7 +2020,7 @@ class FinanceTrackerApp {
                 break;
                 
             case 'monthly':
-                // Set to the correct day of month
+                // Set to the correct day of month in local timezone
                 nextDate = new Date(startDate.getFullYear(), startDate.getMonth(), dayOfMonth);
                 // Keep adding months until we reach today or future
                 while (nextDate < today) {
@@ -2044,7 +2043,12 @@ class FinanceTrackerApp {
                 break;
         }
         
-        return Utils.formatDate(nextDate.toISOString().split('T')[0]);
+        // Format date in local timezone (YYYY-MM-DD)
+        const year = nextDate.getFullYear();
+        const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+        const day = String(nextDate.getDate()).padStart(2, '0');
+        
+        return Utils.formatDate(`${year}-${month}-${day}`);
     }
 
     /**
