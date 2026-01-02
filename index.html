@@ -31,6 +31,7 @@
                 <button class="nav-tab" data-tab="analytics">Analytics</button>
                 <button class="nav-tab" data-tab="categories">Categories</button>
                 <button class="nav-tab" data-tab="recurring">Recurring</button>
+                <button class="nav-tab" data-tab="investments">Investments</button>
                 <button class="nav-tab" data-tab="settings">Settings</button>
             </div>
             <div class="nav-user">
@@ -303,6 +304,51 @@
                 </div>
             </section>
 
+            <!-- Investment Portfolio Section -->
+            <section id="investments" class="content-section">
+                <div class="section-header">
+                    <h2>Investment Portfolio</h2>
+                    <button class="btn btn-primary" id="add-investment-btn">+ Add Investment</button>
+                </div>
+
+                <div class="investment-info-card" style="background: #e8f5e8; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #28a745;">
+                    <h4 style="margin: 0 0 0.5rem 0; color: #28a745;">💰 Track Your Investment Portfolio</h4>
+                    <p style="margin: 0; font-size: 14px; color: #6c757d;">
+                        Monitor your SIP, mutual funds, stocks, gold, silver, and other investments. Add past investments and track new ones automatically.
+                        <br><strong>Supported:</strong> SIP, Mutual Funds, Stocks, Gold, Silver, FD, Bonds, Crypto
+                    </p>
+                </div>
+
+                <!-- Investment Summary Cards -->
+                <div id="investment-summary" class="investment-summary-grid">
+                    <!-- Summary cards will be populated here -->
+                </div>
+
+                <!-- Investment Portfolio List -->
+                <div class="portfolio-section">
+                    <div class="portfolio-header">
+                        <h3>Your Investments</h3>
+                        <div class="portfolio-filters">
+                            <select id="investment-type-filter">
+                                <option value="all">All Types</option>
+                                <option value="sip">SIP</option>
+                                <option value="mutual_fund">Mutual Funds</option>
+                                <option value="stocks">Stocks</option>
+                                <option value="gold">Gold</option>
+                                <option value="silver">Silver</option>
+                                <option value="fd">Fixed Deposits</option>
+                                <option value="bonds">Bonds</option>
+                                <option value="crypto">Cryptocurrency</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="investments-list" class="investments-grid">
+                        <!-- Investments will be populated here -->
+                    </div>
+                </div>
+            </section>
+
             <!-- Settings Section -->
             <section id="settings" class="content-section">
                 <div class="section-header">
@@ -500,6 +546,69 @@
                 </div>
                 <div class="modal-actions">
                     <button type="submit" class="btn btn-primary">Save Recurring Transaction</button>
+                    <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Investment Management -->
+    <div id="investment-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="investment-modal-title">Add Investment</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="investment-form">
+                <div class="form-group">
+                    <label for="investment-type">Investment Type</label>
+                    <select id="investment-type" name="investment_type" required>
+                        <option value="">Select Type</option>
+                        <option value="sip">SIP (Systematic Investment Plan)</option>
+                        <option value="mutual_fund">Mutual Fund</option>
+                        <option value="stocks">Stocks</option>
+                        <option value="gold">Gold</option>
+                        <option value="silver">Silver</option>
+                        <option value="fd">Fixed Deposit</option>
+                        <option value="bonds">Bonds</option>
+                        <option value="crypto">Cryptocurrency</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="investment-name">Investment Name</label>
+                    <input type="text" id="investment-name" name="investment_name" placeholder="e.g., HDFC Top 100 Fund, Physical Gold" required>
+                </div>
+                <div class="form-group">
+                    <label for="investment-category">Category (Optional)</label>
+                    <input type="text" id="investment-category" name="category" placeholder="e.g., Large Cap, Small Cap, Physical Gold">
+                </div>
+                <div class="form-group">
+                    <label for="investment-amount">Amount Invested (₹)</label>
+                    <input type="number" id="investment-amount" name="amount" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="investment-units">Units/Quantity</label>
+                    <input type="number" id="investment-units" name="units" step="0.0001" min="0" placeholder="Number of units, shares, or grams">
+                </div>
+                <div class="form-group">
+                    <label for="investment-price">Price per Unit (₹)</label>
+                    <input type="number" id="investment-price" name="price_per_unit" step="0.0001" min="0" placeholder="Price per unit/share/gram">
+                </div>
+                <div class="form-group">
+                    <label for="investment-date">Investment Date</label>
+                    <input type="date" id="investment-date" name="transaction_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="investment-current-value">Current Value (₹) - Optional</label>
+                    <input type="number" id="investment-current-value" name="current_value" step="0.01" min="0" placeholder="Current market value">
+                </div>
+                <div class="form-group">
+                    <label for="investment-notes">Notes (Optional)</label>
+                    <textarea id="investment-notes" name="notes" rows="2" placeholder="Additional notes about this investment..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">Add Investment</button>
                     <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
                 </div>
             </form>
