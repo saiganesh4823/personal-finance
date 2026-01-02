@@ -28,7 +28,7 @@
       "schedule": "0 9 1 * *"
     },
     {
-      "path": "/api/recurring/process",
+      "path": "/api/recurring?action=process",
       "schedule": "0 6 * * *"
     }
   ],
@@ -44,10 +44,6 @@
     {
       "src": "/api/reports/monthly",
       "dest": "/api/reports/monthly.js"
-    },
-    {
-      "src": "/api/recurring/process",
-      "dest": "/api/recurring/process.js"
     },
     {
       "src": "/api/user/settings",

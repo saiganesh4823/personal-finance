@@ -18,7 +18,40 @@ export default async function handler(req, res) {
     }
     
     try {
-        // Verify JWT token
+        const { action } = req.query;
+        
+        if (action === 'process') {
+            // Handle recurring transaction processing
+            return await handleProcessRecurring(req, res);
+        } else {
+            // Handle regular recurring transaction CRUD
+            return await handleRecurringCRUD(req, res);
+        }
+        
+    } catch (error) {
+        console.error('Recurring transactions API error:', error);
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({ error: 'Invalid token' });
+        }
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+// Handle recurring transaction processing
+async function handleProcessRecurring(req, res) {
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+    
+    // Check if this is a cron job or user request
+    const cronSecret = req.headers['x-cron-secret'];
+    let userId = null;
+    
+    if (cronSecret === process.env.CRON_SECRET) {
+        // Automated cron job - process all users
+        console.log('Processing recurring transactions via cron job');
+    } else {
+        // User request - verify JWT token
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             return res.status(401).json({ error: 'No token provided' });
@@ -26,7 +59,37 @@ export default async function handler(req, res) {
         
         const token = authHeader.substring(7);
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const userId = decoded.userId;
+        userId = decoded.userId;
+    }
+    
+    // Call the database function to process recurring transactions
+    const { data, error } = await supabase.rpc('process_recurring_transactions');
+    
+    if (error) {
+        console.error('Database error:', error);
+        return res.status(500).json({ error: 'Failed to process recurring transactions' });
+    }
+    
+    const transactionsCreated = data || 0;
+    
+    res.json({
+        message: 'Recurring transactions processed successfully',
+        transactionsCreated,
+        processedAt: new Date().toISOString()
+    });
+}
+
+// Handle regular recurring transaction CRUD
+async function handleRecurringCRUD(req, res) {
+    // Verify JWT token for CRUD operations
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId;
         
         if (req.method === 'GET') {
             // Get all recurring transactions for user
@@ -199,12 +262,5 @@ export default async function handler(req, res) {
         } else {
             res.status(405).json({ error: 'Method not allowed' });
         }
-        
-    } catch (error) {
-        console.error('Recurring transactions API error:', error);
-        if (error.name === 'JsonWebTokenError') {
-            return res.status(401).json({ error: 'Invalid token' });
-        }
-        res.status(500).json({ error: 'Internal server error' });
     }
 }
