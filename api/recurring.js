@@ -90,8 +90,8 @@ async function handleRecurringCRUD(req, res) {
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId;
-        
-        if (req.method === 'GET') {
+    
+    if (req.method === 'GET') {
             // Get all recurring transactions for user
             const { data: recurringTransactions, error } = await supabase
                 .from('recurring_transactions')
@@ -262,5 +262,4 @@ async function handleRecurringCRUD(req, res) {
         } else {
             res.status(405).json({ error: 'Method not allowed' });
         }
-    }
 }
