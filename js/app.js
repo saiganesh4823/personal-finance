@@ -1209,10 +1209,11 @@ class FinanceTrackerApp {
                 const categories = await this.categoryManager.getCategories();
                 console.log(`Found ${categories.length} existing categories`);
                 
-                // Only create defaults if truly no categories exist
+                // Temporarily disable automatic category creation due to API issues
                 if (categories.length === 0) {
-                    console.log('No categories found, creating defaults...');
-                    await this.categoryManager.createDefaultCategories();
+                    console.log('No categories found. Categories should be added via SQL script.');
+                    console.log('Please run the database/CHECK-AND-FIX.sql script in Supabase.');
+                    // await this.categoryManager.createDefaultCategories();
                 } else {
                     console.log('Categories already exist, skipping default creation');
                 }

@@ -1,16 +1,15 @@
 -- ================================================================
--- PERSONAL FINANCE TRACKER - SIMPLE FRESH DATABASE SETUP
--- ⚠️  WARNING: This DELETES ALL DATA and creates everything fresh
+-- PERSONAL FINANCE TRACKER - COMPLETE DATABASE SETUP
+-- One SQL file that does everything: creates schema + adds categories
 -- ================================================================
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ================================================================
--- 1. DELETE EVERYTHING (NUCLEAR OPTION)
+-- 1. DROP EVERYTHING (CLEAN SLATE)
 -- ================================================================
 
--- Drop all tables in correct order (foreign keys first)
 DROP TABLE IF EXISTS investment_transactions CASCADE;
 DROP TABLE IF EXISTS investment_portfolio CASCADE;
 DROP TABLE IF EXISTS recurring_transactions CASCADE;
@@ -19,7 +18,6 @@ DROP TABLE IF EXISTS categories CASCADE;
 DROP TABLE IF EXISTS user_sessions CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
--- Drop all functions
 DROP FUNCTION IF EXISTS process_recurring_transactions() CASCADE;
 DROP FUNCTION IF EXISTS create_default_categories(UUID) CASCADE;
 DROP FUNCTION IF EXISTS trigger_create_default_categories() CASCADE;
@@ -29,10 +27,10 @@ DROP FUNCTION IF EXISTS get_investment_summary(UUID) CASCADE;
 DROP FUNCTION IF EXISTS update_portfolio_totals() CASCADE;
 
 -- ================================================================
--- 2. CREATE FRESH TABLES
+-- 2. CREATE ALL TABLES
 -- ================================================================
 
--- Users table with Google OAuth support and email notifications
+-- Users table
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -47,7 +45,7 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- User sessions table for authentication
+-- User sessions table
 CREATE TABLE user_sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -58,7 +56,7 @@ CREATE TABLE user_sessions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Categories table (per user) with comprehensive default categories
+-- Categories table
 CREATE TABLE categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -71,7 +69,7 @@ CREATE TABLE categories (
     UNIQUE(user_id, name, type)
 );
 
--- Transactions table (per user)
+-- Transactions table
 CREATE TABLE transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -84,7 +82,7 @@ CREATE TABLE transactions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Recurring transactions table for SIP, EMI, rent automation
+-- Recurring transactions table
 CREATE TABLE recurring_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -104,7 +102,7 @@ CREATE TABLE recurring_transactions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Investment portfolio table for tracking SIP, Gold, Silver, Stocks
+-- Investment portfolio table
 CREATE TABLE investment_portfolio (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -123,7 +121,7 @@ CREATE TABLE investment_portfolio (
     UNIQUE(user_id, investment_name, investment_type)
 );
 
--- Investment transactions table for tracking individual buy/sell transactions
+-- Investment transactions table
 CREATE TABLE investment_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -138,7 +136,7 @@ CREATE TABLE investment_transactions (
 );
 
 -- ================================================================
--- 3. CREATE INDEXES FOR PERFORMANCE
+-- 3. CREATE INDEXES
 -- ================================================================
 
 CREATE INDEX idx_users_username ON users(username);
@@ -158,7 +156,7 @@ CREATE INDEX idx_investment_portfolio_user_id ON investment_portfolio(user_id);
 CREATE INDEX idx_investment_transactions_user_id ON investment_transactions(user_id);
 
 -- ================================================================
--- 4. CREATE UTILITY FUNCTIONS
+-- 4. CREATE FUNCTIONS
 -- ================================================================
 
 -- Update timestamp function
@@ -170,41 +168,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- ================================================================
--- 5. CREATE TRIGGERS FOR AUTO-TIMESTAMPS
--- ================================================================
-
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON user_sessions
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_categories_updated_at BEFORE UPDATE ON categories
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_recurring_transactions_updated_at BEFORE UPDATE ON recurring_transactions
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_investment_portfolio_updated_at BEFORE UPDATE ON investment_portfolio
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- ================================================================
--- 6. DEFAULT CATEGORIES FUNCTION (32 COMPREHENSIVE CATEGORIES)
--- ================================================================
-
+-- Default categories function
 CREATE OR REPLACE FUNCTION create_default_categories(p_user_id UUID)
 RETURNS VOID AS $$
 BEGIN
-    -- Delete any existing categories for this user first
     DELETE FROM categories WHERE user_id = p_user_id;
     
-    -- Insert all 32 default categories
     INSERT INTO categories (user_id, name, color, type, is_default) VALUES
-    -- 24 Default expense categories (including Family and Fuel)
     (p_user_id, 'Food & Dining', '#e74c3c', 'expense', TRUE),
     (p_user_id, 'Bills & Utilities', '#34495e', 'expense', TRUE),
     (p_user_id, 'Shopping', '#9b59b6', 'expense', TRUE),
@@ -229,8 +199,6 @@ BEGIN
     (p_user_id, 'Home Maintenance', '#e83e8c', 'expense', TRUE),
     (p_user_id, 'Charity & Donation', '#fd7e14', 'expense', TRUE),
     (p_user_id, 'Other Expenses', '#95a5a6', 'expense', TRUE),
-    
-    -- 10 Default income categories
     (p_user_id, 'Salary', '#27ae60', 'income', TRUE),
     (p_user_id, 'Freelance', '#16a085', 'income', TRUE),
     (p_user_id, 'Investment Returns', '#2980b9', 'income', TRUE),
@@ -244,7 +212,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to create default categories for new users
+-- Trigger function for new users
 CREATE OR REPLACE FUNCTION trigger_create_default_categories()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -253,15 +221,115 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ================================================================
+-- 5. CREATE TRIGGERS
+-- ================================================================
+
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON user_sessions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_categories_updated_at BEFORE UPDATE ON categories
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_recurring_transactions_updated_at BEFORE UPDATE ON recurring_transactions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_investment_portfolio_updated_at BEFORE UPDATE ON investment_portfolio
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER after_user_insert
     AFTER INSERT ON users
     FOR EACH ROW
     EXECUTE FUNCTION trigger_create_default_categories();
 
 -- ================================================================
--- 7. SUCCESS MESSAGE
+-- 6. ADD CATEGORIES FOR EXISTING USERS
 -- ================================================================
 
--- Simple success notification
-SELECT 'SUCCESS: Fresh database created with all tables, functions, and triggers!' as status;
-SELECT 'NEXT STEP: Register a new user and categories will be automatically created!' as instruction;
+-- Add categories for any existing users
+INSERT INTO categories (user_id, name, color, type, is_default) 
+SELECT 
+    u.id as user_id,
+    category_name,
+    category_color,
+    category_type,
+    TRUE as is_default
+FROM users u
+CROSS JOIN (
+    VALUES 
+    ('Food & Dining', '#e74c3c', 'expense'),
+    ('Bills & Utilities', '#34495e', 'expense'),
+    ('Shopping', '#9b59b6', 'expense'),
+    ('Transportation', '#f39c12', 'expense'),
+    ('Entertainment', '#e67e22', 'expense'),
+    ('Healthcare', '#1abc9c', 'expense'),
+    ('Education', '#3498db', 'expense'),
+    ('Travel', '#2ecc71', 'expense'),
+    ('Personal Care', '#f1c40f', 'expense'),
+    ('Family', '#ff69b4', 'expense'),
+    ('Fuel', '#ff6b35', 'expense'),
+    ('Gym & Fitness', '#32cd32', 'expense'),
+    ('Loan EMI', '#dc3545', 'expense'),
+    ('Credit Card Payment', '#fd7e14', 'expense'),
+    ('SIP & Mutual Funds', '#4169e1', 'expense'),
+    ('Savings', '#ffd700', 'expense'),
+    ('Insurance Premium', '#6f42c1', 'expense'),
+    ('Tax Payment', '#20c997', 'expense'),
+    ('Fixed Deposit', '#17a2b8', 'expense'),
+    ('Stock Investment', '#28a745', 'expense'),
+    ('Rent', '#6c757d', 'expense'),
+    ('Home Maintenance', '#e83e8c', 'expense'),
+    ('Charity & Donation', '#fd7e14', 'expense'),
+    ('Other Expenses', '#95a5a6', 'expense'),
+    ('Salary', '#27ae60', 'income'),
+    ('Freelance', '#16a085', 'income'),
+    ('Investment Returns', '#2980b9', 'income'),
+    ('Dividend', '#8e44ad', 'income'),
+    ('Interest Income', '#d35400', 'income'),
+    ('Bonus', '#c0392b', 'income'),
+    ('Gift Received', '#85c1e9', 'income'),
+    ('Rental Income', '#58d68d', 'income'),
+    ('Business Income', '#f4d03f', 'income'),
+    ('Other Income', '#aed6f1', 'income')
+) AS category_data(category_name, category_color, category_type)
+WHERE NOT EXISTS (
+    SELECT 1 FROM categories c 
+    WHERE c.user_id = u.id 
+    AND c.name = category_data.category_name 
+    AND c.type = category_data.category_type
+);
+
+-- ================================================================
+-- 7. VERIFICATION AND SUCCESS MESSAGE
+-- ================================================================
+
+-- Show results
+SELECT 'DATABASE SETUP COMPLETE!' as status;
+
+-- Show user and category counts
+SELECT 
+    (SELECT COUNT(*) FROM users) as total_users,
+    (SELECT COUNT(*) FROM categories) as total_categories,
+    (SELECT COUNT(*) FROM transactions) as total_transactions;
+
+-- Show categories by user
+SELECT 
+    u.email,
+    u.username,
+    COUNT(c.id) as total_categories,
+    COUNT(CASE WHEN c.type = 'expense' THEN 1 END) as expense_categories,
+    COUNT(CASE WHEN c.type = 'income' THEN 1 END) as income_categories
+FROM users u
+LEFT JOIN categories c ON u.id = c.user_id
+GROUP BY u.id, u.email, u.username
+ORDER BY u.email;
+
+-- Final success message
+SELECT '🎉 SUCCESS! Your Personal Finance Tracker is ready!' as final_message;
+SELECT 'Refresh your app to see all 32 categories working!' as instruction;
