@@ -599,6 +599,44 @@
                     <label for="investment-date">Investment Date</label>
                     <input type="date" id="investment-date" name="transaction_date" required>
                 </div>
+                
+                <!-- Recurring Investment Option -->
+                <div class="form-group recurring-toggle">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="investment-is-recurring" name="is_recurring">
+                        <span>Make this a recurring investment (SIP/Auto-invest)</span>
+                    </label>
+                </div>
+                
+                <!-- Recurring Options (shown when checkbox is checked) -->
+                <div id="recurring-investment-options" class="recurring-options" style="display: none;">
+                    <div class="form-group">
+                        <label for="investment-frequency">Frequency</label>
+                        <select id="investment-frequency" name="frequency">
+                            <option value="monthly">Monthly</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="investment-sip-day">SIP Day of Month</label>
+                        <select id="investment-sip-day" name="sip_day">
+                            <option value="1">1st</option>
+                            <option value="5">5th</option>
+                            <option value="10">10th</option>
+                            <option value="15">15th</option>
+                            <option value="20">20th</option>
+                            <option value="25">25th</option>
+                            <option value="28">28th</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="investment-end-date">End Date (Optional)</label>
+                        <input type="date" id="investment-end-date" name="end_date" placeholder="Leave empty for indefinite">
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label for="investment-current-value">Current Value (₹) - Optional</label>
                     <input type="number" id="investment-current-value" name="current_value" step="0.01" min="0" placeholder="Current market value">

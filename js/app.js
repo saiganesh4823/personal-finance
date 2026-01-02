@@ -2238,10 +2238,17 @@ class FinanceTrackerApp {
 
         const investmentModal = document.getElementById('investment-modal');
         const investmentCloseBtn = investmentModal?.querySelector('.modal-close');
+        const investmentCancelBtn = investmentModal?.querySelector('.modal-cancel');
         const investmentForm = document.getElementById('investment-form');
 
         if (investmentCloseBtn) {
             investmentCloseBtn.addEventListener('click', () => {
+                this.hideInvestmentModal();
+            });
+        }
+
+        if (investmentCancelBtn) {
+            investmentCancelBtn.addEventListener('click', () => {
                 this.hideInvestmentModal();
             });
         }
@@ -2267,6 +2274,30 @@ class FinanceTrackerApp {
                 this.loadInvestments();
             });
         }
+
+        // Recurring investment toggle
+        const recurringCheckbox = document.getElementById('investment-is-recurring');
+        if (recurringCheckbox) {
+            recurringCheckbox.addEventListener('change', (e) => {
+                const recurringOptions = document.getElementById('recurring-investment-options');
+                if (recurringOptions) {
+                    recurringOptions.style.display = e.target.checked ? 'block' : 'none';
+                }
+            });
+        }
+
+        // Auto-check recurring for SIP type
+        const investmentTypeSelect = document.getElementById('investment-type');
+        if (investmentTypeSelect) {
+            investmentTypeSelect.addEventListener('change', (e) => {
+                const recurringCheckbox = document.getElementById('investment-is-recurring');
+                const recurringOptions = document.getElementById('recurring-investment-options');
+                if (e.target.value === 'sip' && recurringCheckbox) {
+                    recurringCheckbox.checked = true;
+                    if (recurringOptions) recurringOptions.style.display = 'block';
+                }
+            });
+        }
     }
 
     /**
@@ -2275,10 +2306,16 @@ class FinanceTrackerApp {
     showInvestmentModal() {
         const modal = document.getElementById('investment-modal');
         const form = document.getElementById('investment-form');
+        const recurringOptions = document.getElementById('recurring-investment-options');
         
         if (form) {
             form.reset();
             document.getElementById('investment-date').value = new Date().toISOString().split('T')[0];
+        }
+        
+        // Hide recurring options by default
+        if (recurringOptions) {
+            recurringOptions.style.display = 'none';
         }
         
         if (modal) {
@@ -2319,6 +2356,7 @@ class FinanceTrackerApp {
             const form = document.getElementById('investment-form');
             const formData = new FormData(form);
             const editId = form.dataset.editId;
+            const isRecurring = document.getElementById('investment-is-recurring')?.checked;
             
             // Check if this is an edit or new investment
             if (editId) {
@@ -2363,16 +2401,59 @@ class FinanceTrackerApp {
                     throw new Error(error.error || 'Failed to add investment');
                 }
 
+                // If recurring is enabled, create a recurring transaction for this investment
+                if (isRecurring) {
+                    await this.createRecurringInvestment(formData);
+                }
+
                 this.hideInvestmentModal();
                 await this.loadInvestments();
                 Utils.hideLoading();
-                Utils.showToast('Investment added successfully!', 'success');
+                
+                const successMsg = isRecurring 
+                    ? 'Investment added with recurring SIP!' 
+                    : 'Investment added successfully!';
+                Utils.showToast(successMsg, 'success');
             }
 
         } catch (error) {
             console.error('Failed to save investment:', error);
             Utils.hideLoading();
             Utils.showToast('Failed to save investment: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Create recurring investment (SIP)
+     */
+    async createRecurringInvestment(formData) {
+        try {
+            const frequency = formData.get('frequency') || 'monthly';
+            const sipDay = parseInt(formData.get('sip_day')) || 1;
+            const endDate = formData.get('end_date') || null;
+            
+            const recurringData = {
+                name: `SIP - ${formData.get('investment_name')}`,
+                type: 'expense',
+                amount: parseFloat(formData.get('amount')),
+                frequency: frequency,
+                start_date: formData.get('transaction_date'),
+                end_date: endDate,
+                day_of_month: sipDay,
+                note: `Recurring investment: ${formData.get('investment_type')} - ${formData.get('investment_name')}`
+            };
+
+            const response = await this.database.authenticatedRequest('/recurring', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(recurringData)
+            });
+
+            if (!response.ok) {
+                console.error('Failed to create recurring investment');
+            }
+        } catch (error) {
+            console.error('Error creating recurring investment:', error);
         }
     }
 
@@ -2637,6 +2718,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.FinanceApp.editRecurringTransaction = app.editRecurringTransaction.bind(app);
     window.FinanceApp.toggleRecurringTransaction = app.toggleRecurringTransaction.bind(app);
     window.FinanceApp.deleteRecurringTransaction = app.deleteRecurringTransaction.bind(app);
+    
+    // Make investment methods globally accessible for HTML onclick handlers
+    window.FinanceApp.editInvestment = app.editInvestment.bind(app);
+    window.FinanceApp.deleteInvestment = app.deleteInvestment.bind(app);
+    
+    // Also expose as window.app for simpler onclick handlers
+    window.app = app;
     
     } catch (error) {
         console.error('App initialization error:', error);
