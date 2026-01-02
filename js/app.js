@@ -2291,8 +2291,21 @@ class FinanceTrackerApp {
      */
     hideInvestmentModal() {
         const modal = document.getElementById('investment-modal');
+        const form = document.getElementById('investment-form');
+        const title = document.getElementById('investment-modal-title');
+        
         if (modal) {
             modal.classList.remove('show');
+        }
+        
+        // Reset form and clear edit state
+        if (form) {
+            form.reset();
+            delete form.dataset.editId;
+        }
+        
+        if (title) {
+            title.textContent = 'Add Investment';
         }
     }
 
@@ -2305,39 +2318,61 @@ class FinanceTrackerApp {
             
             const form = document.getElementById('investment-form');
             const formData = new FormData(form);
+            const editId = form.dataset.editId;
             
-            const investmentData = {
-                investment_type: formData.get('investment_type'),
-                investment_name: formData.get('investment_name'),
-                category: formData.get('category') || null,
-                transaction_type: 'buy',
-                amount: parseFloat(formData.get('amount')),
-                units: parseFloat(formData.get('units')) || 0,
-                price_per_unit: parseFloat(formData.get('price_per_unit')) || 0,
-                transaction_date: formData.get('transaction_date'),
-                notes: formData.get('notes') || null
-            };
+            // Check if this is an edit or new investment
+            if (editId) {
+                // Update existing investment
+                const updateData = {
+                    investment_name: formData.get('investment_name'),
+                    category: formData.get('category') || null,
+                    total_invested: parseFloat(formData.get('amount')) || 0,
+                    current_value: parseFloat(formData.get('current_value')) || 0,
+                    units_quantity: parseFloat(formData.get('units')) || 0,
+                    average_price: parseFloat(formData.get('price_per_unit')) || 0,
+                    notes: formData.get('notes') || null
+                };
+                
+                await this.updateInvestment(editId, updateData);
+                
+                // Clear edit ID
+                delete form.dataset.editId;
+                document.getElementById('investment-modal-title').textContent = 'Add Investment';
+            } else {
+                // Create new investment
+                const investmentData = {
+                    investment_type: formData.get('investment_type'),
+                    investment_name: formData.get('investment_name'),
+                    category: formData.get('category') || null,
+                    transaction_type: 'buy',
+                    amount: parseFloat(formData.get('amount')),
+                    units: parseFloat(formData.get('units')) || 0,
+                    price_per_unit: parseFloat(formData.get('price_per_unit')) || 0,
+                    transaction_date: formData.get('transaction_date'),
+                    notes: formData.get('notes') || null
+                };
 
-            const response = await this.database.authenticatedRequest('/investments?action=add-transaction', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(investmentData)
-            });
+                const response = await this.database.authenticatedRequest('/investments?action=add-transaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(investmentData)
+                });
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to add investment');
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to add investment');
+                }
+
+                this.hideInvestmentModal();
+                await this.loadInvestments();
+                Utils.hideLoading();
+                Utils.showToast('Investment added successfully!', 'success');
             }
-
-            this.hideInvestmentModal();
-            await this.loadInvestments();
-            Utils.hideLoading();
-            Utils.showToast('Investment added successfully!', 'success');
 
         } catch (error) {
             console.error('Failed to save investment:', error);
             Utils.hideLoading();
-            Utils.showToast('Failed to add investment: ' + error.message, 'error');
+            Utils.showToast('Failed to save investment: ' + error.message, 'error');
         }
     }
 
@@ -2476,10 +2511,82 @@ class FinanceTrackerApp {
     }
 
     /**
-     * Edit investment (placeholder)
+     * Edit investment
      */
-    editInvestment(investmentId) {
-        Utils.showToast('Edit functionality coming soon!', 'info');
+    async editInvestment(investmentId) {
+        try {
+            // Fetch the investment data
+            const response = await this.database.authenticatedRequest('/investments');
+            if (!response.ok) {
+                throw new Error('Failed to load investment');
+            }
+            
+            const investments = await response.json();
+            const investment = investments.find(inv => inv.id === investmentId);
+            
+            if (!investment) {
+                Utils.showToast('Investment not found', 'error');
+                return;
+            }
+            
+            // Show modal and populate form
+            const modal = document.getElementById('investment-modal');
+            const form = document.getElementById('investment-form');
+            const title = document.getElementById('investment-modal-title');
+            
+            if (title) title.textContent = 'Edit Investment';
+            
+            // Populate form fields
+            document.getElementById('investment-type').value = investment.investment_type || '';
+            document.getElementById('investment-name').value = investment.investment_name || '';
+            document.getElementById('investment-category').value = investment.category || '';
+            document.getElementById('investment-amount').value = investment.total_invested || '';
+            document.getElementById('investment-units').value = investment.units_quantity || '';
+            document.getElementById('investment-price').value = investment.average_price || '';
+            document.getElementById('investment-current-value').value = investment.current_value || '';
+            document.getElementById('investment-notes').value = investment.notes || '';
+            document.getElementById('investment-date').value = investment.last_updated_date || new Date().toISOString().split('T')[0];
+            
+            // Store the investment ID for update
+            form.dataset.editId = investmentId;
+            
+            if (modal) {
+                modal.classList.add('show');
+            }
+        } catch (error) {
+            console.error('Failed to load investment for editing:', error);
+            Utils.showToast('Failed to load investment: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Update existing investment
+     */
+    async updateInvestment(investmentId, investmentData) {
+        try {
+            Utils.showLoading();
+            
+            const response = await this.database.authenticatedRequest(`/investments?id=${investmentId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(investmentData)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to update investment');
+            }
+
+            this.hideInvestmentModal();
+            await this.loadInvestments();
+            Utils.hideLoading();
+            Utils.showToast('Investment updated successfully!', 'success');
+
+        } catch (error) {
+            console.error('Failed to update investment:', error);
+            Utils.hideLoading();
+            Utils.showToast('Failed to update investment: ' + error.message, 'error');
+        }
     }
 }
 
