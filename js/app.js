@@ -1986,26 +1986,61 @@ class FinanceTrackerApp {
 
     /**
      * Calculate next due date for recurring transaction
+     * For past start dates, calculates the next upcoming occurrence
      */
     calculateNextDate(recurring) {
         const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
         const startDate = new Date(recurring.start_date);
-        const lastProcessed = recurring.last_processed_date ? new Date(recurring.last_processed_date) : null;
+        startDate.setHours(0, 0, 0, 0);
         
-        let nextDate = lastProcessed || startDate;
+        // If there's a next_due_date from the database, use it
+        if (recurring.next_due_date) {
+            const nextDue = new Date(recurring.next_due_date);
+            if (nextDue >= today) {
+                return Utils.formatDate(recurring.next_due_date);
+            }
+        }
         
+        let nextDate = new Date(startDate);
+        const dayOfMonth = recurring.day_of_month || startDate.getDate();
+        
+        // Calculate the next occurrence that is >= today
         switch (recurring.frequency) {
             case 'daily':
-                nextDate = new Date(nextDate.getTime() + 24 * 60 * 60 * 1000);
+                if (nextDate < today) {
+                    nextDate = new Date(today);
+                }
                 break;
+                
             case 'weekly':
-                nextDate = new Date(nextDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+                while (nextDate < today) {
+                    nextDate.setDate(nextDate.getDate() + 7);
+                }
                 break;
+                
             case 'monthly':
-                nextDate = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, recurring.day_of_month || startDate.getDate());
+                // Set to the correct day of month
+                nextDate = new Date(startDate.getFullYear(), startDate.getMonth(), dayOfMonth);
+                // Keep adding months until we reach today or future
+                while (nextDate < today) {
+                    nextDate.setMonth(nextDate.getMonth() + 1);
+                }
                 break;
+                
+            case 'quarterly':
+                nextDate = new Date(startDate.getFullYear(), startDate.getMonth(), dayOfMonth);
+                while (nextDate < today) {
+                    nextDate.setMonth(nextDate.getMonth() + 3);
+                }
+                break;
+                
             case 'yearly':
-                nextDate = new Date(nextDate.getFullYear() + 1, nextDate.getMonth(), nextDate.getDate());
+                nextDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                while (nextDate < today) {
+                    nextDate.setFullYear(nextDate.getFullYear() + 1);
+                }
                 break;
         }
         
@@ -2046,8 +2081,21 @@ class FinanceTrackerApp {
      */
     hideRecurringModal() {
         const modal = document.getElementById('recurring-modal');
+        const form = document.getElementById('recurring-form');
+        const title = document.getElementById('recurring-modal-title');
+        
         if (modal) {
             modal.classList.remove('show');
+        }
+        
+        // Reset form and clear edit state
+        if (form) {
+            form.reset();
+            delete form.dataset.editId;
+        }
+        
+        if (title) {
+            title.textContent = 'Add Recurring Transaction';
         }
     }
 
@@ -2081,12 +2129,65 @@ class FinanceTrackerApp {
     }
 
     /**
+     * Load recurring transaction data for editing
+     */
+    async loadRecurringTransactionData(recurringId) {
+        try {
+            const response = await this.database.authenticatedRequest('/recurring');
+            if (!response.ok) {
+                throw new Error('Failed to load recurring transactions');
+            }
+            
+            const recurringTransactions = await response.json();
+            const recurring = recurringTransactions.find(r => r.id === recurringId);
+            
+            if (!recurring) {
+                Utils.showToast('Recurring transaction not found', 'error');
+                return;
+            }
+            
+            // Store the ID for update
+            const form = document.getElementById('recurring-form');
+            form.dataset.editId = recurringId;
+            
+            // Populate form fields
+            document.getElementById('recurring-name').value = recurring.name || '';
+            document.getElementById('recurring-type').value = recurring.type || 'expense';
+            document.getElementById('recurring-amount').value = recurring.amount || '';
+            document.getElementById('recurring-frequency').value = recurring.frequency || 'monthly';
+            document.getElementById('recurring-start-date').value = recurring.start_date || '';
+            
+            const endDateField = document.getElementById('recurring-end-date');
+            if (endDateField) endDateField.value = recurring.end_date || '';
+            
+            const dayOfMonthField = document.getElementById('recurring-day-of-month');
+            if (dayOfMonthField) dayOfMonthField.value = recurring.day_of_month || '';
+            
+            const noteField = document.getElementById('recurring-note');
+            if (noteField) noteField.value = recurring.note || '';
+            
+            const categoryField = document.getElementById('recurring-category');
+            if (categoryField && recurring.category_id) {
+                categoryField.value = recurring.category_id;
+            }
+            
+            // Show day of month field if monthly
+            this.toggleDayOfMonthField(recurring.frequency);
+            
+        } catch (error) {
+            console.error('Failed to load recurring transaction:', error);
+            Utils.showToast('Failed to load recurring transaction', 'error');
+        }
+    }
+
+    /**
      * Save recurring transaction
      */
     async saveRecurringTransaction() {
         try {
             const form = document.getElementById('recurring-form');
             const formData = new FormData(form);
+            const editId = form.dataset.editId;
             
             const recurringData = {
                 name: formData.get('name'),
@@ -2100,22 +2201,38 @@ class FinanceTrackerApp {
                 note: formData.get('note') || null
             };
 
-            const response = await this.database.authenticatedRequest('/recurring', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(recurringData)
-            });
+            let response;
+            if (editId) {
+                // Update existing recurring transaction
+                response = await this.database.authenticatedRequest(`/recurring?id=${editId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(recurringData)
+                });
+            } else {
+                // Create new recurring transaction
+                response = await this.database.authenticatedRequest('/recurring', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(recurringData)
+                });
+            }
 
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.error || 'Failed to save recurring transaction');
             }
 
+            // Clear edit ID
+            delete form.dataset.editId;
+            
             this.hideRecurringModal();
             await this.loadRecurringTransactions();
-            Utils.showToast('Recurring transaction saved successfully!', 'success');
+            Utils.showToast(editId ? 'Recurring transaction updated!' : 'Recurring transaction saved!', 'success');
 
         } catch (error) {
             console.error('Failed to save recurring transaction:', error);
