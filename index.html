@@ -30,6 +30,7 @@
                 <button class="nav-tab" data-tab="history">History</button>
                 <button class="nav-tab" data-tab="analytics">Analytics</button>
                 <button class="nav-tab" data-tab="categories">Categories</button>
+                <button class="nav-tab" data-tab="recurring">Recurring</button>
                 <button class="nav-tab" data-tab="settings">Settings</button>
             </div>
             <div class="nav-user">
@@ -275,6 +276,33 @@
                 </div>
             </section>
 
+            <!-- Recurring Transactions Section -->
+            <section id="recurring" class="content-section">
+                <div class="section-header">
+                    <h2>Recurring Transactions</h2>
+                    <button class="btn btn-primary" id="add-recurring-btn">+ Add Recurring</button>
+                </div>
+
+                <div class="recurring-info-card" style="background: #e8f4fd; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #007bff;">
+                    <h4 style="margin: 0 0 0.5rem 0; color: #007bff;">🔄 Automatic Transactions</h4>
+                    <p style="margin: 0; font-size: 14px; color: #6c757d;">
+                        Set up recurring transactions like SIP, EMI, rent, salary, etc. They will be automatically added to your transactions on the specified dates.
+                        <br><strong>Examples:</strong> Monthly SIP on 5th, Weekly salary, Annual insurance premium
+                    </p>
+                </div>
+
+                <div class="recurring-controls" style="margin-bottom: 1.5rem;">
+                    <button class="btn btn-success" id="process-recurring-btn">⚡ Process Due Transactions</button>
+                    <span class="help-text" style="margin-left: 1rem; color: #6c757d; font-size: 14px;">
+                        Click to generate transactions that are due today
+                    </span>
+                </div>
+
+                <div id="recurring-list" class="recurring-grid">
+                    <!-- Recurring transactions will be populated here -->
+                </div>
+            </section>
+
             <!-- Settings Section -->
             <section id="settings" class="content-section">
                 <div class="section-header">
@@ -409,6 +437,69 @@
                 </div>
                 <div class="modal-actions">
                     <button type="submit" class="btn btn-primary">Save Category</button>
+                    <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Recurring Transaction Management -->
+    <div id="recurring-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="recurring-modal-title">Add Recurring Transaction</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="recurring-form">
+                <div class="form-group">
+                    <label for="recurring-name">Transaction Name</label>
+                    <input type="text" id="recurring-name" name="name" placeholder="e.g., Monthly SIP, Rent Payment" required>
+                </div>
+                <div class="form-group">
+                    <label for="recurring-type">Type</label>
+                    <select id="recurring-type" name="type" required>
+                        <option value="expense">Expense</option>
+                        <option value="income">Income</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="recurring-amount">Amount (₹)</label>
+                    <input type="number" id="recurring-amount" name="amount" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="recurring-category">Category</label>
+                    <select id="recurring-category" name="category_id" required>
+                        <!-- Categories will be populated by JavaScript -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="recurring-frequency">Frequency</label>
+                    <select id="recurring-frequency" name="frequency" required>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="recurring-start-date">Start Date</label>
+                    <input type="date" id="recurring-start-date" name="start_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="recurring-end-date">End Date (Optional)</label>
+                    <input type="date" id="recurring-end-date" name="end_date">
+                </div>
+                <div class="form-group" id="day-of-month-group" style="display: none;">
+                    <label for="recurring-day-of-month">Day of Month (1-31)</label>
+                    <input type="number" id="recurring-day-of-month" name="day_of_month" min="1" max="31">
+                    <small class="help-text">Leave empty to use the same day as start date</small>
+                </div>
+                <div class="form-group">
+                    <label for="recurring-note">Note (Optional)</label>
+                    <textarea id="recurring-note" name="note" rows="2" placeholder="Additional notes..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">Save Recurring Transaction</button>
                     <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
                 </div>
             </form>

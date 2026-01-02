@@ -643,4 +643,178 @@ input:checked + .toggle-slider:before {
     .report-controls button {
         width: 100%;
     }
+}/*
+ Recurring Transactions Styles */
+.recurring-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.recurring-item {
+    background: var(--bg-primary);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    padding: var(--spacing-lg);
+    border-left: 4px solid var(--primary-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.recurring-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.recurring-item.inactive {
+    opacity: 0.6;
+    border-left-color: #ccc;
+}
+
+.recurring-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-md);
+}
+
+.recurring-name {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.recurring-status {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.recurring-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.recurring-detail {
+    display: flex;
+    flex-direction: column;
+}
+
+.recurring-detail-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+
+.recurring-detail-value {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.recurring-amount {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.recurring-amount.income {
+    color: var(--success-color);
+}
+
+.recurring-amount.expense {
+    color: var(--danger-color);
+}
+
+.recurring-frequency {
+    display: inline-block;
+    padding: 4px 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.recurring-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+}
+
+.recurring-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.help-text {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+/* Recurring Modal Specific Styles */
+#recurring-modal .modal-content {
+    max-width: 500px;
+}
+
+#day-of-month-group .help-text {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* Empty State for Recurring */
+.recurring-empty-state {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--text-secondary);
+}
+
+.recurring-empty-state h3 {
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+}
+
+.recurring-empty-state p {
+    margin-bottom: var(--spacing-lg);
+}
+
+/* Responsive Recurring */
+@media (max-width: 768px) {
+    .recurring-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .recurring-details {
+        grid-template-columns: 1fr;
+    }
+    
+    .recurring-actions {
+        flex-direction: column;
+    }
+    
+    .recurring-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }

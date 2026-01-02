@@ -163,6 +163,9 @@ class FinanceTrackerApp {
         // Settings
         this.setupSettingsListeners();
         
+        // Recurring transactions
+        this.setupRecurringListeners();
+        
         // Mobile navigation
         this.setupMobileNavigation();
     }
@@ -544,6 +547,9 @@ class FinanceTrackerApp {
                     break;
                 case 'settings':
                     await this.loadSettings();
+                    break;
+                case 'recurring':
+                    await this.loadRecurringTransactions();
                     break;
             }
         } catch (error) {
@@ -1814,6 +1820,403 @@ class FinanceTrackerApp {
             Utils.showToast('Failed to generate report: ' + error.message, 'error');
         }
     }
+
+    /**
+     * Set up recurring transactions event listeners
+     */
+    setupRecurringListeners() {
+        // Add recurring transaction button
+        const addRecurringBtn = document.getElementById('add-recurring-btn');
+        if (addRecurringBtn) {
+            addRecurringBtn.addEventListener('click', () => {
+                this.showRecurringModal();
+            });
+        }
+
+        // Process recurring transactions button
+        const processRecurringBtn = document.getElementById('process-recurring-btn');
+        if (processRecurringBtn) {
+            processRecurringBtn.addEventListener('click', () => {
+                this.processRecurringTransactions();
+            });
+        }
+
+        // Recurring modal listeners
+        const recurringModal = document.getElementById('recurring-modal');
+        const recurringCloseBtn = recurringModal?.querySelector('.modal-close');
+        const recurringCancelBtn = recurringModal?.querySelector('.modal-cancel');
+        const recurringForm = document.getElementById('recurring-form');
+
+        if (recurringCloseBtn) {
+            recurringCloseBtn.addEventListener('click', () => {
+                this.hideRecurringModal();
+            });
+        }
+
+        if (recurringCancelBtn) {
+            recurringCancelBtn.addEventListener('click', () => {
+                this.hideRecurringModal();
+            });
+        }
+
+        if (recurringModal) {
+            recurringModal.addEventListener('click', (e) => {
+                if (e.target === recurringModal) {
+                    this.hideRecurringModal();
+                }
+            });
+        }
+
+        if (recurringForm) {
+            recurringForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveRecurringTransaction();
+            });
+        }
+
+        // Frequency change listener
+        const frequencySelect = document.getElementById('recurring-frequency');
+        if (frequencySelect) {
+            frequencySelect.addEventListener('change', (e) => {
+                this.toggleDayOfMonthField(e.target.value);
+            });
+        }
+    }
+
+    /**
+     * Load recurring transactions
+     */
+    async loadRecurringTransactions() {
+        try {
+            const response = await this.database.authenticatedRequest('/recurring');
+            if (!response.ok) {
+                throw new Error('Failed to load recurring transactions');
+            }
+
+            const recurringTransactions = await response.json();
+            this.displayRecurringTransactions(recurringTransactions);
+
+        } catch (error) {
+            console.error('Failed to load recurring transactions:', error);
+            Utils.showToast('Failed to load recurring transactions: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Display recurring transactions
+     */
+    displayRecurringTransactions(recurringTransactions) {
+        const container = document.getElementById('recurring-list');
+        if (!container) return;
+
+        if (recurringTransactions.length === 0) {
+            container.innerHTML = `
+                <div class="recurring-empty-state">
+                    <h3>No recurring transactions yet</h3>
+                    <p>Set up automatic transactions like SIP, EMI, rent, or salary to save time!</p>
+                    <button class="btn btn-primary" onclick="FinanceApp.showRecurringModal()">Add Your First Recurring Transaction</button>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = recurringTransactions.map(recurring => {
+            const nextDate = this.calculateNextDate(recurring);
+            return `
+                <div class="recurring-item ${recurring.is_active ? 'active' : 'inactive'}">
+                    <div class="recurring-header">
+                        <h3 class="recurring-name">${recurring.name}</h3>
+                        <div class="recurring-status">
+                            <span class="status-badge ${recurring.is_active ? 'active' : 'inactive'}">
+                                ${recurring.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="recurring-details">
+                        <div class="recurring-detail">
+                            <span class="recurring-detail-label">Amount</span>
+                            <span class="recurring-detail-value recurring-amount ${recurring.type}">
+                                ${recurring.type === 'income' ? '+' : '-'}${Utils.formatCurrency(parseFloat(recurring.amount))}
+                            </span>
+                        </div>
+                        <div class="recurring-detail">
+                            <span class="recurring-detail-label">Category</span>
+                            <span class="recurring-detail-value">${recurring.categories?.name || 'No Category'}</span>
+                        </div>
+                        <div class="recurring-detail">
+                            <span class="recurring-detail-label">Frequency</span>
+                            <span class="recurring-detail-value">
+                                <span class="recurring-frequency">${recurring.frequency}</span>
+                            </span>
+                        </div>
+                        <div class="recurring-detail">
+                            <span class="recurring-detail-label">Next Due</span>
+                            <span class="recurring-detail-value">${nextDate}</span>
+                        </div>
+                        <div class="recurring-detail">
+                            <span class="recurring-detail-label">Start Date</span>
+                            <span class="recurring-detail-value">${Utils.formatDate(recurring.start_date)}</span>
+                        </div>
+                        ${recurring.end_date ? `
+                        <div class="recurring-detail">
+                            <span class="recurring-detail-label">End Date</span>
+                            <span class="recurring-detail-value">${Utils.formatDate(recurring.end_date)}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ${recurring.note ? `<p style="margin: 0.5rem 0; color: var(--text-secondary); font-size: 14px;">${recurring.note}</p>` : ''}
+                    <div class="recurring-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="FinanceApp.editRecurringTransaction('${recurring.id}')">Edit</button>
+                        <button class="btn btn-${recurring.is_active ? 'warning' : 'success'} btn-sm" onclick="FinanceApp.toggleRecurringTransaction('${recurring.id}', ${!recurring.is_active})">
+                            ${recurring.is_active ? 'Pause' : 'Resume'}
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="FinanceApp.deleteRecurringTransaction('${recurring.id}')">Delete</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Calculate next due date for recurring transaction
+     */
+    calculateNextDate(recurring) {
+        const today = new Date();
+        const startDate = new Date(recurring.start_date);
+        const lastProcessed = recurring.last_processed_date ? new Date(recurring.last_processed_date) : null;
+        
+        let nextDate = lastProcessed || startDate;
+        
+        switch (recurring.frequency) {
+            case 'daily':
+                nextDate = new Date(nextDate.getTime() + 24 * 60 * 60 * 1000);
+                break;
+            case 'weekly':
+                nextDate = new Date(nextDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+                break;
+            case 'monthly':
+                nextDate = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, recurring.day_of_month || startDate.getDate());
+                break;
+            case 'yearly':
+                nextDate = new Date(nextDate.getFullYear() + 1, nextDate.getMonth(), nextDate.getDate());
+                break;
+        }
+        
+        return Utils.formatDate(nextDate.toISOString().split('T')[0]);
+    }
+
+    /**
+     * Show recurring transaction modal
+     */
+    async showRecurringModal(recurringId = null) {
+        const modal = document.getElementById('recurring-modal');
+        const form = document.getElementById('recurring-form');
+        const title = document.getElementById('recurring-modal-title');
+        
+        // Reset form
+        form.reset();
+        
+        // Populate categories
+        await this.populateRecurringCategories();
+        
+        if (recurringId) {
+            title.textContent = 'Edit Recurring Transaction';
+            // Load recurring transaction data
+            await this.loadRecurringTransactionData(recurringId);
+        } else {
+            title.textContent = 'Add Recurring Transaction';
+            // Set default date to today
+            document.getElementById('recurring-start-date').value = new Date().toISOString().split('T')[0];
+        }
+        
+        if (modal) {
+            modal.classList.add('show');
+        }
+    }
+
+    /**
+     * Hide recurring transaction modal
+     */
+    hideRecurringModal() {
+        const modal = document.getElementById('recurring-modal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+    }
+
+    /**
+     * Populate categories in recurring modal
+     */
+    async populateRecurringCategories() {
+        try {
+            const categories = await this.categoryManager.getCategories();
+            const categorySelect = document.getElementById('recurring-category');
+            
+            if (categorySelect) {
+                categorySelect.innerHTML = '<option value="">Select Category</option>' +
+                    categories.map(category => 
+                        `<option value="${category.id}">${category.name}</option>`
+                    ).join('');
+            }
+        } catch (error) {
+            console.error('Failed to load categories:', error);
+        }
+    }
+
+    /**
+     * Toggle day of month field based on frequency
+     */
+    toggleDayOfMonthField(frequency) {
+        const dayOfMonthGroup = document.getElementById('day-of-month-group');
+        if (dayOfMonthGroup) {
+            dayOfMonthGroup.style.display = frequency === 'monthly' ? 'block' : 'none';
+        }
+    }
+
+    /**
+     * Save recurring transaction
+     */
+    async saveRecurringTransaction() {
+        try {
+            const form = document.getElementById('recurring-form');
+            const formData = new FormData(form);
+            
+            const recurringData = {
+                name: formData.get('name'),
+                type: formData.get('type'),
+                amount: parseFloat(formData.get('amount')),
+                category_id: formData.get('category_id') || null,
+                frequency: formData.get('frequency'),
+                start_date: formData.get('start_date'),
+                end_date: formData.get('end_date') || null,
+                day_of_month: formData.get('day_of_month') || null,
+                note: formData.get('note') || null
+            };
+
+            const response = await this.database.authenticatedRequest('/recurring', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(recurringData)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to save recurring transaction');
+            }
+
+            this.hideRecurringModal();
+            await this.loadRecurringTransactions();
+            Utils.showToast('Recurring transaction saved successfully!', 'success');
+
+        } catch (error) {
+            console.error('Failed to save recurring transaction:', error);
+            Utils.showToast('Failed to save recurring transaction: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Process recurring transactions
+     */
+    async processRecurringTransactions() {
+        try {
+            Utils.showLoading();
+            
+            const response = await this.database.authenticatedRequest('/recurring/process', {
+                method: 'POST'
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to process recurring transactions');
+            }
+
+            const result = await response.json();
+            Utils.hideLoading();
+            
+            if (result.transactionsCreated > 0) {
+                Utils.showToast(`${result.transactionsCreated} transactions created successfully!`, 'success');
+                // Refresh dashboard and history
+                await this.loadDashboard();
+                if (this.currentTab === 'history') {
+                    await this.loadTransactionHistory();
+                }
+            } else {
+                Utils.showToast('No due transactions found to process.', 'info');
+            }
+
+        } catch (error) {
+            console.error('Failed to process recurring transactions:', error);
+            Utils.hideLoading();
+            Utils.showToast('Failed to process recurring transactions: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Edit recurring transaction
+     */
+    async editRecurringTransaction(recurringId) {
+        await this.showRecurringModal(recurringId);
+    }
+
+    /**
+     * Toggle recurring transaction active status
+     */
+    async toggleRecurringTransaction(recurringId, isActive) {
+        try {
+            const response = await this.database.authenticatedRequest(`/recurring?id=${recurringId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ is_active: isActive })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to update recurring transaction');
+            }
+
+            await this.loadRecurringTransactions();
+            Utils.showToast(`Recurring transaction ${isActive ? 'resumed' : 'paused'} successfully!`, 'success');
+
+        } catch (error) {
+            console.error('Failed to toggle recurring transaction:', error);
+            Utils.showToast('Failed to update recurring transaction: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Delete recurring transaction
+     */
+    async deleteRecurringTransaction(recurringId) {
+        const confirmMessage = 'Are you sure you want to delete this recurring transaction? This action cannot be undone.';
+        
+        Utils.showConfirmDialog(confirmMessage, async () => {
+            try {
+                Utils.showLoading();
+                
+                const response = await this.database.authenticatedRequest(`/recurring?id=${recurringId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to delete recurring transaction');
+                }
+
+                await this.loadRecurringTransactions();
+                Utils.hideLoading();
+                Utils.showToast('Recurring transaction deleted successfully!', 'success');
+
+            } catch (error) {
+                console.error('Failed to delete recurring transaction:', error);
+                Utils.hideLoading();
+                Utils.showToast('Failed to delete recurring transaction: ' + error.message, 'error');
+            }
+        });
+    }
 }
 
 // Initialize the application when DOM is loaded
@@ -1857,6 +2260,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Make transaction methods globally accessible for HTML onclick handlers
     window.FinanceApp.editTransaction = app.editTransaction.bind(app);
     window.FinanceApp.deleteTransaction = app.deleteTransaction.bind(app);
+    
+    // Make recurring transaction methods globally accessible for HTML onclick handlers
+    window.FinanceApp.showRecurringModal = app.showRecurringModal.bind(app);
+    window.FinanceApp.editRecurringTransaction = app.editRecurringTransaction.bind(app);
+    window.FinanceApp.toggleRecurringTransaction = app.toggleRecurringTransaction.bind(app);
+    window.FinanceApp.deleteRecurringTransaction = app.deleteRecurringTransaction.bind(app);
     
     } catch (error) {
         console.error('App initialization error:', error);
