@@ -235,7 +235,21 @@ class Utils {
     static formatDate(date, format = 'short') {
         if (!date) return '';
         
-        const dateObj = date instanceof Date ? date : new Date(date);
+        let dateObj;
+        if (date instanceof Date) {
+            dateObj = date;
+        } else if (typeof date === 'string') {
+            // Handle YYYY-MM-DD format strings properly to avoid timezone issues
+            // Parse as local date, not UTC
+            if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                const [year, month, day] = date.split('-').map(Number);
+                dateObj = new Date(year, month - 1, day); // month is 0-indexed
+            } else {
+                dateObj = new Date(date);
+            }
+        } else {
+            dateObj = new Date(date);
+        }
         
         if (isNaN(dateObj.getTime())) {
             return '';
@@ -243,7 +257,11 @@ class Utils {
 
         switch (format) {
             case 'input':
-                return dateObj.toISOString().split('T')[0];
+                // Return YYYY-MM-DD in local timezone
+                const y = dateObj.getFullYear();
+                const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const d = String(dateObj.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
             case 'long':
                 return dateObj.toLocaleDateString('en-US', {
                     year: 'numeric',

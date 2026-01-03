@@ -72,8 +72,8 @@ temp/
 *.sqlite3
 *.db
 
-# Kiro IDE specific files
-.kiro/
+# Kiro IDE specific files (keep specs for documentation)
+# .kiro/
 
 # Debug files
 debug*.html
