@@ -509,8 +509,14 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="recurring-amount">Amount (₹)</label>
+                    <label for="recurring-amount">Total Amount (₹)</label>
                     <input type="number" id="recurring-amount" name="amount" step="0.01" min="0" required>
+                    <small class="help-text">Full amount for the transaction (e.g., ₹15,000 SIP)</small>
+                </div>
+                <div class="form-group">
+                    <label for="recurring-debit-amount">Amount to Debit (₹) - Optional</label>
+                    <input type="number" id="recurring-debit-amount" name="debit_amount" step="0.01" min="0">
+                    <small class="help-text">Amount to actually debit from your account. Leave empty to debit full amount. Useful for SIP where part comes from other sources.</small>
                 </div>
                 <div class="form-group">
                     <label for="recurring-category">Category</label>

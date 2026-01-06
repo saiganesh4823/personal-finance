@@ -23,6 +23,9 @@ A comprehensive personal finance management application with transaction trackin
 - Set up automatic recurring transactions (SIP, EMI, rent, salary)
 - Support for daily, weekly, monthly, and yearly frequencies
 - Custom day-of-month selection for monthly transactions
+- **Partial debit support** - debit only part of the amount (e.g., ₹5k debit for ₹15k SIP)
+- Automatic processing via daily cron job at 6 AM
+- Manual processing with "Process Due Transactions" button
 - Pause/resume functionality
 
 ### 📈 Investment Portfolio

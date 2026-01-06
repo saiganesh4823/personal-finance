@@ -44,10 +44,10 @@ async function handleProcessRecurring(req, res) {
     }
     
     // Check if this is a cron job or user request
-    const cronSecret = req.headers['x-cron-secret'];
+    const cronSecret = req.headers['x-vercel-cron-signature'] || req.headers['x-cron-secret'];
     let userId = null;
     
-    if (cronSecret === process.env.CRON_SECRET) {
+    if (cronSecret || req.headers['x-vercel-cron-signature']) {
         // Automated cron job - process all users
         console.log('Processing recurring transactions via cron job');
     } else {
@@ -67,7 +67,7 @@ async function handleProcessRecurring(req, res) {
     
     if (error) {
         console.error('Database error:', error);
-        return res.status(500).json({ error: 'Failed to process recurring transactions' });
+        return res.status(500).json({ error: 'Failed to process recurring transactions: ' + error.message });
     }
     
     const transactionsCreated = data || 0;
@@ -119,6 +119,7 @@ async function handleRecurringCRUD(req, res) {
                 name, 
                 type, 
                 amount, 
+                debit_amount, // New field for partial debit
                 category_id, 
                 frequency, 
                 start_date, 
@@ -143,6 +144,16 @@ async function handleRecurringCRUD(req, res) {
                 return res.status(400).json({ error: 'Invalid frequency' });
             }
             
+            // Validate debit_amount if provided
+            if (debit_amount !== undefined && debit_amount !== null) {
+                if (parseFloat(debit_amount) <= 0) {
+                    return res.status(400).json({ error: 'Debit amount must be greater than 0' });
+                }
+                if (parseFloat(debit_amount) > parseFloat(amount)) {
+                    return res.status(400).json({ error: 'Debit amount cannot be greater than total amount' });
+                }
+            }
+            
             const { data: recurringTransaction, error } = await supabase
                 .from('recurring_transactions')
                 .insert({
@@ -150,6 +161,7 @@ async function handleRecurringCRUD(req, res) {
                     name,
                     type,
                     amount: parseFloat(amount),
+                    debit_amount: debit_amount ? parseFloat(debit_amount) : null,
                     category_id,
                     frequency,
                     start_date,
@@ -183,6 +195,7 @@ async function handleRecurringCRUD(req, res) {
                 name, 
                 type, 
                 amount, 
+                debit_amount, // New field for partial debit
                 category_id, 
                 frequency, 
                 start_date, 
@@ -197,6 +210,16 @@ async function handleRecurringCRUD(req, res) {
                 return res.status(400).json({ error: 'Recurring transaction ID is required' });
             }
             
+            // Validate debit_amount if provided
+            if (debit_amount !== undefined && debit_amount !== null && amount !== undefined) {
+                if (parseFloat(debit_amount) <= 0) {
+                    return res.status(400).json({ error: 'Debit amount must be greater than 0' });
+                }
+                if (parseFloat(debit_amount) > parseFloat(amount)) {
+                    return res.status(400).json({ error: 'Debit amount cannot be greater than total amount' });
+                }
+            }
+            
             const updates = {
                 updated_at: new Date().toISOString()
             };
@@ -204,6 +227,7 @@ async function handleRecurringCRUD(req, res) {
             if (name !== undefined) updates.name = name;
             if (type !== undefined) updates.type = type;
             if (amount !== undefined) updates.amount = parseFloat(amount);
+            if (debit_amount !== undefined) updates.debit_amount = debit_amount ? parseFloat(debit_amount) : null;
             if (category_id !== undefined) updates.category_id = category_id;
             if (frequency !== undefined) updates.frequency = frequency;
             if (start_date !== undefined) updates.start_date = start_date;

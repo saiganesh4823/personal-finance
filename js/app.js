@@ -1888,6 +1888,33 @@ class FinanceTrackerApp {
                 this.toggleDayOfMonthField(e.target.value);
             });
         }
+
+        // Debit amount validation
+        const debitAmountField = document.getElementById('recurring-debit-amount');
+        const totalAmountField = document.getElementById('recurring-amount');
+        if (debitAmountField && totalAmountField) {
+            debitAmountField.addEventListener('input', () => {
+                const debitAmount = parseFloat(debitAmountField.value) || 0;
+                const totalAmount = parseFloat(totalAmountField.value) || 0;
+                
+                if (debitAmount > totalAmount && totalAmount > 0) {
+                    debitAmountField.setCustomValidity('Debit amount cannot be greater than total amount');
+                } else {
+                    debitAmountField.setCustomValidity('');
+                }
+            });
+            
+            totalAmountField.addEventListener('input', () => {
+                const debitAmount = parseFloat(debitAmountField.value) || 0;
+                const totalAmount = parseFloat(totalAmountField.value) || 0;
+                
+                if (debitAmount > totalAmount && debitAmount > 0) {
+                    debitAmountField.setCustomValidity('Debit amount cannot be greater than total amount');
+                } else {
+                    debitAmountField.setCustomValidity('');
+                }
+            });
+        }
     }
 
     /**
@@ -1944,6 +1971,8 @@ class FinanceTrackerApp {
                             <span class="recurring-detail-label">Amount</span>
                             <span class="recurring-detail-value recurring-amount ${recurring.type}">
                                 ${recurring.type === 'income' ? '+' : '-'}${Utils.formatCurrency(parseFloat(recurring.amount))}
+                                ${recurring.debit_amount && recurring.debit_amount !== recurring.amount ? 
+                                    `<br><small style="color: var(--text-secondary);">Debit: ${Utils.formatCurrency(parseFloat(recurring.debit_amount))}</small>` : ''}
                             </span>
                         </div>
                         <div class="recurring-detail">
@@ -2158,6 +2187,7 @@ class FinanceTrackerApp {
             document.getElementById('recurring-name').value = recurring.name || '';
             document.getElementById('recurring-type').value = recurring.type || 'expense';
             document.getElementById('recurring-amount').value = recurring.amount || '';
+            document.getElementById('recurring-debit-amount').value = recurring.debit_amount || '';
             document.getElementById('recurring-frequency').value = recurring.frequency || 'monthly';
             document.getElementById('recurring-start-date').value = recurring.start_date || '';
             
@@ -2197,6 +2227,7 @@ class FinanceTrackerApp {
                 name: formData.get('name'),
                 type: formData.get('type'),
                 amount: parseFloat(formData.get('amount')),
+                debit_amount: formData.get('debit_amount') ? parseFloat(formData.get('debit_amount')) : null,
                 category_id: formData.get('category_id') || null,
                 frequency: formData.get('frequency'),
                 start_date: formData.get('start_date'),
