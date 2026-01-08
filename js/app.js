@@ -2881,6 +2881,142 @@ class FinanceTrackerApp {
             Utils.showToast('Failed to update investment: ' + error.message, 'error');
         }
     }
+
+    /**
+     * Update user currency preference
+     */
+    async updateCurrency(currency) {
+        try {
+            Utils.showLoading();
+            
+            const response = await this.database.authenticatedRequest('/user/settings', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ currency })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update currency');
+            }
+
+            const result = await response.json();
+            
+            // Update user currency in localStorage for immediate use
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            user.currency = currency;
+            localStorage.setItem('user', JSON.stringify(user));
+            
+            // Refresh dashboard to show new currency
+            await this.loadDashboard();
+            
+            Utils.hideLoading();
+            Utils.showToast(`Currency updated to ${Utils.getCurrencySymbol(currency)}`, 'success');
+            
+        } catch (error) {
+            console.error('Failed to update currency:', error);
+            Utils.hideLoading();
+            Utils.showToast('Failed to update currency: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Set previous balance for current month
+     */
+    async setPreviousBalance() {
+        try {
+            const balanceInput = document.getElementById('previous-balance-input');
+            const balance = parseFloat(balanceInput.value);
+            
+            if (isNaN(balance) || balance < 0) {
+                Utils.showToast('Please enter a valid balance amount', 'error');
+                return;
+            }
+            
+            Utils.showLoading();
+            
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            
+            const response = await this.database.authenticatedRequest('/user/settings?action=balance', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    year,
+                    month,
+                    opening_balance: balance
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to set previous balance');
+            }
+
+            const result = await response.json();
+            
+            // Clear input
+            balanceInput.value = '';
+            
+            // Refresh dashboard to show updated balance
+            await this.loadDashboard();
+            
+            Utils.hideLoading();
+            Utils.showToast(`Previous balance set to ${Utils.formatCurrency(balance, Utils.getUserCurrency())}`, 'success');
+            
+        } catch (error) {
+            console.error('Failed to set previous balance:', error);
+            Utils.hideLoading();
+            Utils.showToast('Failed to set previous balance: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Load monthly balance data and update dashboard
+     */
+    async loadMonthlyBalance() {
+        try {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            
+            const response = await this.database.authenticatedRequest(`/user/settings?action=balance&year=${year}&month=${month}`);
+            
+            if (!response.ok) {
+                // If no balance record exists or API not available, use defaults
+                console.log('Monthly balance not available, using defaults');
+                return {
+                    opening_balance: 0,
+                    monthly_income: 0,
+                    monthly_expenses: 0,
+                    closing_balance: 0,
+                    old_balance_used: 0
+                };
+            }
+            
+            const balances = await response.json();
+            return balances.length > 0 ? balances[0] : {
+                opening_balance: 0,
+                monthly_income: 0,
+                monthly_expenses: 0,
+                closing_balance: 0,
+                old_balance_used: 0
+            };
+            
+        } catch (error) {
+            console.log('Monthly balance API not available yet, using defaults:', error.message);
+            return {
+                opening_balance: 0,
+                monthly_income: 0,
+                monthly_expenses: 0,
+                closing_balance: 0,
+                old_balance_used: 0
+            };
+        }
+    }
 }
 
 // Initialize the application when DOM is loaded
@@ -3044,138 +3180,4 @@ function setupUserMenu() {
 function showProfileModal() {
     // This will be implemented in the profile management task
     Utils.showToast('Profile management coming soon!', 'info');
-} 
-   /**
-     * Update user currency preference
-     */
-    async updateCurrency(currency) {
-        try {
-            Utils.showLoading();
-            
-            const response = await this.database.authenticatedRequest('/user/settings', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ currency })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to update currency');
-            }
-
-            const result = await response.json();
-            
-            // Update user currency in localStorage for immediate use
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            user.currency = currency;
-            localStorage.setItem('user', JSON.stringify(user));
-            
-            // Refresh dashboard to show new currency
-            await this.loadDashboard();
-            
-            Utils.hideLoading();
-            Utils.showToast(`Currency updated to ${Utils.getCurrencySymbol(currency)}`, 'success');
-            
-        } catch (error) {
-            console.error('Failed to update currency:', error);
-            Utils.hideLoading();
-            Utils.showToast('Failed to update currency: ' + error.message, 'error');
-        }
-    }
-
-    /**
-     * Set previous balance for current month
-     */
-    async setPreviousBalance() {
-        try {
-            const balanceInput = document.getElementById('previous-balance-input');
-            const balance = parseFloat(balanceInput.value);
-            
-            if (isNaN(balance) || balance < 0) {
-                Utils.showToast('Please enter a valid balance amount', 'error');
-                return;
-            }
-            
-            Utils.showLoading();
-            
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth() + 1;
-            
-            const response = await this.database.authenticatedRequest('/user/settings?action=balance', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    year,
-                    month,
-                    opening_balance: balance
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to set previous balance');
-            }
-
-            const result = await response.json();
-            
-            // Clear input
-            balanceInput.value = '';
-            
-            // Refresh dashboard to show updated balance
-            await this.loadDashboard();
-            
-            Utils.hideLoading();
-            Utils.showToast(`Previous balance set to ${Utils.formatCurrency(balance, Utils.getUserCurrency())}`, 'success');
-            
-        } catch (error) {
-            console.error('Failed to set previous balance:', error);
-            Utils.hideLoading();
-            Utils.showToast('Failed to set previous balance: ' + error.message, 'error');
-        }
-    }
-
-    /**
-     * Load monthly balance data and update dashboard
-     */
-    async loadMonthlyBalance() {
-        try {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth() + 1;
-            
-            const response = await this.database.authenticatedRequest(`/user/settings?action=balance&year=${year}&month=${month}`);
-            
-            if (!response.ok) {
-                // If no balance record exists, that's okay - just use defaults
-                return {
-                    opening_balance: 0,
-                    monthly_income: 0,
-                    monthly_expenses: 0,
-                    closing_balance: 0,
-                    old_balance_used: 0
-                };
-            }
-            
-            const balances = await response.json();
-            return balances.length > 0 ? balances[0] : {
-                opening_balance: 0,
-                monthly_income: 0,
-                monthly_expenses: 0,
-                closing_balance: 0,
-                old_balance_used: 0
-            };
-            
-        } catch (error) {
-            console.error('Failed to load monthly balance:', error);
-            return {
-                opening_balance: 0,
-                monthly_income: 0,
-                monthly_expenses: 0,
-                closing_balance: 0,
-                old_balance_used: 0
-            };
-        }
-    }
+}
