@@ -478,6 +478,22 @@ class FinanceTrackerApp {
                 this.generateMonthlyReport();
             });
         }
+
+        // Currency selection change
+        const currencySelect = document.getElementById('currency-select');
+        if (currencySelect) {
+            currencySelect.addEventListener('change', async (e) => {
+                await this.updateCurrency(e.target.value);
+            });
+        }
+
+        // Set previous balance button
+        const setPreviousBalanceBtn = document.getElementById('set-previous-balance-btn');
+        if (setPreviousBalanceBtn) {
+            setPreviousBalanceBtn.addEventListener('click', () => {
+                this.setPreviousBalance();
+            });
+        }
     }
 
     /**
@@ -592,26 +608,36 @@ class FinanceTrackerApp {
             
             const stats = analytics.stats;
             
+            // Get user's preferred currency
+            const userCurrency = Utils.getUserCurrency();
+            
             // Update summary cards with proper null handling
             const totalIncome = parseFloat(stats.totalIncome) || 0;
             const totalExpenses = parseFloat(stats.totalExpenses) || 0;
             const balance = totalIncome - totalExpenses;
             
-            // Update DOM elements
+            // Load monthly balance data
+            const monthlyBalance = await this.loadMonthlyBalance();
+            const openingBalance = parseFloat(monthlyBalance.opening_balance) || 0;
+            const oldBalanceUsed = parseFloat(monthlyBalance.old_balance_used) || 0;
+            const availableBalance = openingBalance + balance - oldBalanceUsed;
+            
+            // Update DOM elements with user's currency
             const incomeElement = document.getElementById('total-income');
             const expensesElement = document.getElementById('total-expenses');
             const balanceElement = document.getElementById('net-balance');
+            const oldBalanceElement = document.getElementById('old-balance');
             
             if (incomeElement) {
-                incomeElement.textContent = Utils.formatCurrency(totalIncome);
+                incomeElement.textContent = Utils.formatCurrency(totalIncome, userCurrency);
             }
             
             if (expensesElement) {
-                expensesElement.textContent = Utils.formatCurrency(totalExpenses);
+                expensesElement.textContent = Utils.formatCurrency(totalExpenses, userCurrency);
             }
             
             if (balanceElement) {
-                balanceElement.textContent = Utils.formatCurrency(balance);
+                balanceElement.textContent = Utils.formatCurrency(balance, userCurrency);
                 
                 // Update balance color based on positive/negative
                 if (balance >= 0) {
@@ -619,6 +645,28 @@ class FinanceTrackerApp {
                 } else {
                     balanceElement.className = 'amount text-danger';
                 }
+            }
+            
+            if (oldBalanceElement) {
+                oldBalanceElement.textContent = Utils.formatCurrency(openingBalance, userCurrency);
+            }
+            
+            // Update balance breakdown section
+            const openingBalanceEl = document.getElementById('opening-balance');
+            const oldBalanceUsedEl = document.getElementById('old-balance-used');
+            const availableBalanceEl = document.getElementById('available-balance');
+            
+            if (openingBalanceEl) {
+                openingBalanceEl.textContent = Utils.formatCurrency(openingBalance, userCurrency);
+            }
+            
+            if (oldBalanceUsedEl) {
+                oldBalanceUsedEl.textContent = Utils.formatCurrency(oldBalanceUsed, userCurrency);
+            }
+            
+            if (availableBalanceEl) {
+                availableBalanceEl.textContent = Utils.formatCurrency(availableBalance, userCurrency);
+                availableBalanceEl.className = availableBalance >= 0 ? 'balance-value text-success' : 'balance-value text-danger';
             }
             
             // Load recent transactions
@@ -662,6 +710,7 @@ class FinanceTrackerApp {
                 const category = categoryMap[transaction.category_id];
                 const categoryName = category ? category.name : 'Unknown';
                 const categoryColor = category ? category.color : '#ccc';
+                const userCurrency = Utils.getUserCurrency();
                 
                 return `
                     <div class="transaction-item">
@@ -677,7 +726,7 @@ class FinanceTrackerApp {
                                 </div>
                             </div>
                             <div class="transaction-amount ${transaction.type}">
-                                ${transaction.type === 'income' ? '+' : '-'}${Utils.formatCurrency(parseFloat(transaction.amount))}
+                                ${transaction.type === 'income' ? '+' : '-'}${Utils.formatCurrency(parseFloat(transaction.amount), userCurrency)}
                             </div>
                         </div>
                     </div>
@@ -1689,6 +1738,17 @@ class FinanceTrackerApp {
             document.getElementById('user-email-display').textContent = settings.email;
             document.getElementById('profile-name').textContent = `${settings.firstName || ''} ${settings.lastName || ''}`.trim() || 'Not set';
             document.getElementById('profile-email').textContent = settings.email;
+            
+            // Set currency selection
+            const currencySelect = document.getElementById('currency-select');
+            if (currencySelect && settings.currency) {
+                currencySelect.value = settings.currency;
+            }
+            
+            // Update user currency in localStorage for immediate use
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            user.currency = settings.currency || 'INR';
+            localStorage.setItem('user', JSON.stringify(user));
             
             // Populate year dropdown
             this.populateYearDropdown();
@@ -2984,4 +3044,138 @@ function setupUserMenu() {
 function showProfileModal() {
     // This will be implemented in the profile management task
     Utils.showToast('Profile management coming soon!', 'info');
-}
+} 
+   /**
+     * Update user currency preference
+     */
+    async updateCurrency(currency) {
+        try {
+            Utils.showLoading();
+            
+            const response = await this.database.authenticatedRequest('/user/settings', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ currency })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update currency');
+            }
+
+            const result = await response.json();
+            
+            // Update user currency in localStorage for immediate use
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            user.currency = currency;
+            localStorage.setItem('user', JSON.stringify(user));
+            
+            // Refresh dashboard to show new currency
+            await this.loadDashboard();
+            
+            Utils.hideLoading();
+            Utils.showToast(`Currency updated to ${Utils.getCurrencySymbol(currency)}`, 'success');
+            
+        } catch (error) {
+            console.error('Failed to update currency:', error);
+            Utils.hideLoading();
+            Utils.showToast('Failed to update currency: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Set previous balance for current month
+     */
+    async setPreviousBalance() {
+        try {
+            const balanceInput = document.getElementById('previous-balance-input');
+            const balance = parseFloat(balanceInput.value);
+            
+            if (isNaN(balance) || balance < 0) {
+                Utils.showToast('Please enter a valid balance amount', 'error');
+                return;
+            }
+            
+            Utils.showLoading();
+            
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            
+            const response = await this.database.authenticatedRequest('/user/settings?action=balance', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    year,
+                    month,
+                    opening_balance: balance
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to set previous balance');
+            }
+
+            const result = await response.json();
+            
+            // Clear input
+            balanceInput.value = '';
+            
+            // Refresh dashboard to show updated balance
+            await this.loadDashboard();
+            
+            Utils.hideLoading();
+            Utils.showToast(`Previous balance set to ${Utils.formatCurrency(balance, Utils.getUserCurrency())}`, 'success');
+            
+        } catch (error) {
+            console.error('Failed to set previous balance:', error);
+            Utils.hideLoading();
+            Utils.showToast('Failed to set previous balance: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Load monthly balance data and update dashboard
+     */
+    async loadMonthlyBalance() {
+        try {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            
+            const response = await this.database.authenticatedRequest(`/user/settings?action=balance&year=${year}&month=${month}`);
+            
+            if (!response.ok) {
+                // If no balance record exists, that's okay - just use defaults
+                return {
+                    opening_balance: 0,
+                    monthly_income: 0,
+                    monthly_expenses: 0,
+                    closing_balance: 0,
+                    old_balance_used: 0
+                };
+            }
+            
+            const balances = await response.json();
+            return balances.length > 0 ? balances[0] : {
+                opening_balance: 0,
+                monthly_income: 0,
+                monthly_expenses: 0,
+                closing_balance: 0,
+                old_balance_used: 0
+            };
+            
+        } catch (error) {
+            console.error('Failed to load monthly balance:', error);
+            return {
+                opening_balance: 0,
+                monthly_income: 0,
+                monthly_expenses: 0,
+                closing_balance: 0,
+                old_balance_used: 0
+            };
+        }
+    }
