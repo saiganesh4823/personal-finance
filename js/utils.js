@@ -214,16 +214,48 @@ class Utils {
     }
 
     /**
-     * Format currency amount
+     * Format currency amount with proper symbol
      * @param {number} amount - The amount to format
-     * @param {string} currency - Currency symbol (default: '₹')
+     * @param {string} currency - Currency code (INR, USD, EUR, etc.)
      * @returns {string} Formatted currency string
      */
-    static formatCurrency(amount, currency = '₹') {
+    static formatCurrency(amount, currency = 'INR') {
         if (typeof amount !== 'number' || isNaN(amount)) {
-            return `${currency}0.00`;
+            return Utils.getCurrencySymbol(currency) + '0.00';
         }
-        return `${currency}${Math.abs(amount).toFixed(2)}`;
+        
+        const symbol = Utils.getCurrencySymbol(currency);
+        return `${symbol}${Math.abs(amount).toFixed(2)}`;
+    }
+
+    /**
+     * Get currency symbol for currency code
+     * @param {string} currency - Currency code
+     * @returns {string} Currency symbol
+     */
+    static getCurrencySymbol(currency = 'INR') {
+        const symbols = {
+            'INR': '₹',
+            'USD': '$',
+            'EUR': '€',
+            'GBP': '£',
+            'JPY': '¥',
+            'CAD': 'C$',
+            'AUD': 'A$',
+            'CHF': 'CHF ',
+            'CNY': '¥',
+            'SGD': 'S$'
+        };
+        return symbols[currency] || currency + ' ';
+    }
+
+    /**
+     * Get user's preferred currency from localStorage or default
+     * @returns {string} Currency code
+     */
+    static getUserCurrency() {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        return user.currency || 'INR';
     }
 
     /**

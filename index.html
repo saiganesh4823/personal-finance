@@ -103,9 +103,39 @@
                     <div class="summary-card balance">
                         <div class="card-icon">💰</div>
                         <div class="card-content">
-                            <h3>Net Balance</h3>
+                            <h3>Current Balance</h3>
                             <p class="amount" id="net-balance">₹0.00</p>
                             <span class="period">This Month</span>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-card old-balance">
+                        <div class="card-icon">🏦</div>
+                        <div class="card-content">
+                            <h3>Previous Balance</h3>
+                            <p class="amount" id="old-balance">₹0.00</p>
+                            <span class="period">Carried Forward</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Balance Details -->
+                <div class="balance-details" style="margin: 1.5rem 0;">
+                    <div class="balance-card">
+                        <h3>💳 Monthly Balance Breakdown</h3>
+                        <div class="balance-info">
+                            <div class="balance-item">
+                                <span class="balance-label">Opening Balance:</span>
+                                <span class="balance-value" id="opening-balance">₹0.00</span>
+                            </div>
+                            <div class="balance-item">
+                                <span class="balance-label">Used from Previous:</span>
+                                <span class="balance-value text-warning" id="old-balance-used">₹0.00</span>
+                            </div>
+                            <div class="balance-item">
+                                <span class="balance-label">Available Balance:</span>
+                                <span class="balance-value" id="available-balance">₹0.00</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -429,9 +459,29 @@
                     <div class="settings-card">
                         <div class="settings-card-header">
                             <h3>👤 Account Settings</h3>
-                            <p>Manage your account information</p>
+                            <p>Manage your account information and preferences</p>
                         </div>
                         <div class="settings-card-body">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <h4>Currency Selection</h4>
+                                    <p>Choose your preferred currency for all transactions</p>
+                                </div>
+                                <div class="setting-control">
+                                    <select id="currency-select" class="form-control">
+                                        <option value="INR">🇮🇳 Indian Rupee (₹)</option>
+                                        <option value="USD">🇺🇸 US Dollar ($)</option>
+                                        <option value="EUR">🇪🇺 Euro (€)</option>
+                                        <option value="GBP">🇬🇧 British Pound (£)</option>
+                                        <option value="JPY">🇯🇵 Japanese Yen (¥)</option>
+                                        <option value="CAD">🇨🇦 Canadian Dollar (C$)</option>
+                                        <option value="AUD">🇦🇺 Australian Dollar (A$)</option>
+                                        <option value="CHF">🇨🇭 Swiss Franc (CHF)</option>
+                                        <option value="CNY">🇨🇳 Chinese Yuan (¥)</option>
+                                        <option value="SGD">🇸🇬 Singapore Dollar (S$)</option>
+                                    </select>
+                                </div>
+                            </div>
                             <div class="setting-item">
                                 <div class="setting-info">
                                     <h4>Profile Information</h4>
